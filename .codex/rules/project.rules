@@ -1,0 +1,117 @@
+# Project command policy for Codex escalation requests.
+# Rules are evaluated for commands that Codex wants to run outside the sandbox.
+
+prefix_rule(
+    pattern = [["bash", "sh", "zsh"], ["-c", "-lc"]],
+    decision = "prompt",
+    justification = "Shell wrappers can hide multiple operations; review the command before running it outside the sandbox.",
+    match = [
+        "bash -lc npm test",
+        "zsh -c git status",
+    ],
+    not_match = [
+        "git status",
+    ],
+)
+
+prefix_rule(
+    pattern = ["sudo"],
+    decision = "forbidden",
+    justification = "Do not run privileged commands from Codex. Ask the user for an explicit manual operation instead.",
+    match = [
+        "sudo rm -rf /tmp/example",
+    ],
+)
+
+prefix_rule(
+    pattern = ["rm", ["-rf", "-fr", "-Rf", "-fR"]],
+    decision = "forbidden",
+    justification = "Recursive force deletion can destroy local work. Use a narrowly scoped cleanup plan and ask the user first.",
+    match = [
+        "rm -rf node_modules",
+        "rm -fr .next",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "reset", "--hard"],
+    decision = "forbidden",
+    justification = "Never discard worktree changes automatically. Inspect status and ask the user for an explicit recovery plan.",
+    match = [
+        "git reset --hard",
+        "git reset --hard HEAD",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "clean"],
+    decision = "prompt",
+    justification = "Cleaning untracked files can destroy local work; require explicit review.",
+    match = [
+        "git clean -fd",
+        "git clean -fdx",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "prompt",
+    justification = "Pushing changes affects the remote repository and should be user-approved.",
+    match = [
+        "git push",
+        "git push origin main",
+        "git push --force-with-lease",
+    ],
+)
+
+prefix_rule(
+    pattern = ["git", "commit"],
+    decision = "prompt",
+    justification = "Commits should be intentionally scoped and approved by the user.",
+    match = [
+        "git commit -m update",
+    ],
+)
+
+prefix_rule(
+    pattern = [["npm", "pnpm", "yarn", "bun"], ["install", "add"]],
+    decision = "prompt",
+    justification = "Dependency changes alter the supply-chain surface; confirm before installing or adding packages.",
+    match = [
+        "pnpm install",
+        "pnpm add zod",
+        "npm install",
+        "yarn add react",
+        "bun add zod",
+    ],
+)
+
+prefix_rule(
+    pattern = [["npm", "pnpm"], "i"],
+    decision = "prompt",
+    justification = "Dependency installation changes the local supply-chain surface; confirm before installing packages.",
+    match = [
+        "npm i",
+        "pnpm i",
+    ],
+)
+
+prefix_rule(
+    pattern = [["npx", "bunx"],],
+    decision = "prompt",
+    justification = "One-off package execution can run unreviewed downloaded code; confirm before running it.",
+    match = [
+        "npx shadcn@latest init",
+        "bunx create-next-app",
+    ],
+)
+
+prefix_rule(
+    pattern = ["docker", "compose", "down"],
+    decision = "prompt",
+    justification = "Stopping compose services can interrupt local databases or development services.",
+    match = [
+        "docker compose down",
+        "docker compose down -v",
+    ],
+)

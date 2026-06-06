@@ -1,0 +1,38 @@
+# Project-scoped Codex defaults for this repository.
+# Project .codex layers load only after the repository is trusted.
+
+project_root_markers = [".git"]
+project_doc_max_bytes = 65536
+
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+allow_login_shell = false
+
+[features]
+hooks = true
+
+[sandbox_workspace_write]
+network_access = false
+
+[agents]
+max_threads = 4
+max_depth = 1
+job_max_runtime_seconds = 1800
+
+[shell_environment_policy]
+inherit = "core"
+ignore_default_excludes = false
+exclude = [
+  "OPENAI_API_KEY",
+  "CODEX_API_KEY",
+  "GOOGLE_API_KEY",
+  "GEMINI_API_KEY",
+  "DATABASE_URL",
+  "SUPABASE_*",
+  "AWS_*",
+  "GITHUB_TOKEN",
+  "GH_TOKEN",
+  "*SECRET*",
+  "*TOKEN*",
+  "*PASSWORD*"
+]
