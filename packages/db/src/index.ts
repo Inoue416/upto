@@ -1,3 +1,3 @@
-export * from "./client.js";
-export * from "./schema.js";
-export { eq, sql } from "drizzle-orm";
+export * from "./client";
+export * from "./schema";
+export { desc, eq, sql } from "drizzle-orm";

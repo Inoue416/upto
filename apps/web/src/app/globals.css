@@ -2,11 +2,15 @@
 
 :root {
   color-scheme: light;
-  --background: #f7f7f2;
-  --foreground: #161814;
-  --muted: #5b6257;
+  --background: #faf8f1;
+  --foreground: #1d211c;
+  --muted: #62695f;
   --surface: #ffffff;
-  --accent: #1f6f5b;
+  --surface-muted: #fffdf7;
+  --border: #e6e0d2;
+  --border-strong: #cfc6b6;
+  --accent: #2f735d;
+  --accent-soft: #e3f0e8;
 }
 
 * {
@@ -34,4 +38,14 @@ body {
 
 a {
   color: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--foreground);
 }
