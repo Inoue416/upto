@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./apps/web/e2e",
   webServer: {
-    command: "pnpm dev:web",
+    command: "UPTO_WEB_USE_FIXTURE_DATA=true pnpm dev:web",
     reuseExistingServer: true,
     timeout: 120_000,
     url: "http://127.0.0.1:3000",
