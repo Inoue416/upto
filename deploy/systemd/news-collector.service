@@ -1,0 +1,11 @@
+[Unit]
+Description=Upto news collector batch
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/upto
+EnvironmentFile=/opt/upto/.env
+ExecStart=/usr/bin/docker compose --profile batch run --rm collector
+TimeoutStartSec=1800

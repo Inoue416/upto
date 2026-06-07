@@ -50,8 +50,9 @@ docs/
 | `AGENTS.md` | リポジトリの恒久的な作業規約、技術スタック、検証方針、レビュー観点 |
 | `.codex/config.toml` | trusted project で使う Codex 既定値、sandbox、approval、hook 有効化、subagent 上限 |
 | `.codex/rules/project.rules` | sandbox 外実行のコマンド判定。破壊的 git 操作、sudo、dependency 変更、push などを制限 |
-| `.codex/hooks.json` | lifecycle hook の登録 |
+| `.codex/hooks.json` | lifecycle hook の登録。`Stop` で自己フィードバック検証を起動 |
 | `.codex/hooks/codex_hook_guard.py` | prompt/command/permission request 内の秘密情報と明確に危険な command を検出 |
+| `.codex/hooks/self_feedback.py` | worktree 変更に応じて `pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm test`、harness 検証を自動実行 |
 | `.agents/skills/*` | Codex が必要時に読み込む再利用ワークフロー |
 | `.codex/agents/*` | 明示的に subagent を使うときの専門 agent |
 
@@ -75,6 +76,7 @@ rules:
 codex execpolicy check --pretty --rules .codex/rules/project.rules -- git reset --hard
 codex execpolicy check --pretty --rules .codex/rules/project.rules -- git push
 codex execpolicy check --pretty --rules .codex/rules/project.rules -- pnpm add zod
+codex execpolicy check --pretty --rules .codex/rules/project.rules -- pnpm verify
 codex execpolicy check --pretty --rules .codex/rules/project.rules -- rm -rf node_modules
 ```
 
@@ -82,6 +84,7 @@ hooks:
 
 ```bash
 python3 -m py_compile .codex/hooks/codex_hook_guard.py
+python3 -m py_compile .codex/hooks/self_feedback.py
 printf '{"prompt":"hello"}' | /usr/bin/python3 .codex/hooks/codex_hook_guard.py --mode user-prompt
 printf '{"prompt":"sk-example-secret-secret-secret-secret"}' | /usr/bin/python3 .codex/hooks/codex_hook_guard.py --mode user-prompt
 printf '{"tool_input":{"command":"git reset --hard"}}' | /usr/bin/python3 .codex/hooks/codex_hook_guard.py --mode pre-tool
@@ -106,3 +109,4 @@ As of `codex-cli 0.137.0`, `--strict-config` is not supported by the local-only 
 - Keep hooks conservative. They should block only clear high-risk cases to avoid surprising normal development.
 - Prefer rules for command approval behavior and hooks for cross-cutting prompt/tool checks.
 - Use skills for repeatable workflows and subagents for explicit parallel review or exploration.
+- Keep `Stop` self-feedback fast. Escalate browser E2E or Docker checks only when the touched files require them.

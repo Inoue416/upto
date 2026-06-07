@@ -1,0 +1,38 @@
+{
+  "name": "upto",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "pnpm -r build",
+    "db:generate": "pnpm --filter @upto/db db:generate",
+    "db:migrate": "pnpm --filter @upto/db db:migrate",
+    "dev": "pnpm --parallel --filter @upto/web --filter @upto/collector dev",
+    "dev:collector": "pnpm --filter @upto/collector dev",
+    "dev:web": "pnpm --filter @upto/web dev",
+    "format": "oxfmt . \"!docs/**\" \"!AGENTS.md\"",
+    "format:check": "oxfmt --check . \"!docs/**\" \"!AGENTS.md\"",
+    "lint": "oxlint .",
+    "lint:fix": "oxlint . --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm -r typecheck",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.60.0",
+    "@types/node": "25.9.2",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "jsdom": "29.1.1",
+    "oxfmt": "0.53.0",
+    "oxlint": "1.68.0",
+    "tsx": "4.22.4",
+    "typescript": "6.0.3",
+    "vitest": "4.1.8"
+  },
+  "engines": {
+    "node": ">=22.14.0",
+    "pnpm": ">=10.8.1"
+  },
+  "packageManager": "pnpm@10.8.1"
+}

@@ -27,6 +27,10 @@ Workflow:
    - `.agents/skills/*/SKILL.md`: reusable workflows.
    - `.codex/agents/*.toml`: specialized parallel subagents.
 4. Validate after edits:
+   - `pnpm format:check`
+   - `pnpm lint`
+   - `pnpm typecheck`
+   - `pnpm test`
    - `codex execpolicy check --pretty --rules .codex/rules/project.rules -- git reset --hard`
    - `codex execpolicy check --pretty --rules .codex/rules/project.rules -- git push`
    - `printf '{"prompt":"hello"}' | /usr/bin/python3 .codex/hooks/codex_hook_guard.py --mode user-prompt`

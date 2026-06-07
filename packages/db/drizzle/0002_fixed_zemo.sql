@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "sources_name_unique" ON "sources" USING btree ("name");
