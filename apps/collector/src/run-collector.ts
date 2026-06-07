@@ -93,16 +93,19 @@ export async function runCollector(input: RunCollectorInput): Promise<RunCollect
         items.map((item) =>
           articleLimit(async () => {
             try {
-              await processFeedItem({
+              const result = await processFeedItem({
                 feed,
                 fetcher,
                 item,
+                logger,
                 persistence,
                 sourceId: job.sourceId,
                 summarizer,
               });
-              articleCount += 1;
-              feedFetchedCount += 1;
+              if (result === "processed") {
+                articleCount += 1;
+                feedFetchedCount += 1;
+              }
             } catch (error) {
               feedFailedCount += 1;
               const errorMessage = error instanceof Error ? error.message : String(error);
@@ -157,13 +160,45 @@ type ProcessFeedItemInput = {
   feed: FeedTarget;
   fetcher: typeof fetch;
   item: FeedItem;
+  logger: (event: Record<string, unknown>) => void;
   persistence: Persistence;
   sourceId: string;
   summarizer: Summarizer;
 };
 
-async function processFeedItem(input: ProcessFeedItemInput): Promise<void> {
+type ProcessFeedItemResult = "processed" | "skipped_duplicate";
+
+async function processFeedItem(input: ProcessFeedItemInput): Promise<ProcessFeedItemResult> {
   const normalizedUrl = normalizeArticleUrl(input.item.url);
+  const existingArticle = await input.persistence.findArticleByNormalizedUrl(normalizedUrl);
+  const score = calculateScoreForItem(input.item);
+
+  if (existingArticle?.summaryStatus === "summarized") {
+    try {
+      await input.persistence.updateArticleMetrics({
+        articleId: existingArticle.id,
+        bookmarks: input.item.bookmarks,
+        score,
+        views: input.item.views,
+      });
+    } catch (error) {
+      input.logger({
+        error: error instanceof Error ? error.message : String(error),
+        feed: input.feed.name,
+        normalizedUrl,
+        status: "article_duplicate_metrics_update_failed",
+        url: input.item.url,
+      });
+    }
+    input.logger({
+      feed: input.feed.name,
+      normalizedUrl,
+      status: "article_skipped_duplicate",
+      url: input.item.url,
+    });
+    return "skipped_duplicate";
+  }
+
   const content = await extractArticleContent(
     input.item.url,
     input.item.summaryText,
@@ -184,15 +219,6 @@ async function processFeedItem(input: ProcessFeedItemInput): Promise<void> {
     url: input.item.url,
     views: input.item.views,
   });
-  const ageHours = input.item.publishedAt
-    ? Math.max(0, (Date.now() - input.item.publishedAt.getTime()) / 3_600_000)
-    : 0;
-  const score = calculateTrendScore({
-    ageHours,
-    bookmarks: input.item.bookmarks,
-    views: input.item.views,
-  });
-
   await input.persistence.saveArticle({
     content,
     item: input.item,
@@ -201,6 +227,19 @@ async function processFeedItem(input: ProcessFeedItemInput): Promise<void> {
     score,
     sourceId: input.sourceId,
     summary: summary.summary,
+  });
+
+  return "processed";
+}
+
+function calculateScoreForItem(item: FeedItem): number {
+  const ageHours = item.publishedAt
+    ? Math.max(0, (Date.now() - item.publishedAt.getTime()) / 3_600_000)
+    : 0;
+  return calculateTrendScore({
+    ageHours,
+    bookmarks: item.bookmarks,
+    views: item.views,
   });
 }
 
