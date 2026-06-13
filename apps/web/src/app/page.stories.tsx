@@ -1,5 +1,6 @@
-import { ArticleFeed } from "../components/article-feed";
 import type { FeedArticle } from "../lib/articles";
+
+import { ArticleFeed } from "../components/article-feed";
 
 const articles = [
   {
