@@ -31,10 +31,13 @@ Workflow:
    - `pnpm lint`
    - `pnpm typecheck`
    - `pnpm test`
+   - `pnpm verify`
    - `codex execpolicy check --pretty --rules .codex/rules/project.rules -- git reset --hard`
    - `codex execpolicy check --pretty --rules .codex/rules/project.rules -- git push`
    - `printf '{"prompt":"hello"}' | /usr/bin/python3 .codex/hooks/codex_hook_guard.py --mode user-prompt`
    - `printf '{"tool_input":{"command":"git reset --hard"}}' | /usr/bin/python3 .codex/hooks/codex_hook_guard.py --mode pre-tool`
+   - `/usr/bin/python3 .codex/hooks/self_feedback.py --phase post-tool`
+   - `/usr/bin/python3 .codex/hooks/self_feedback.py --phase stop`
 5. Update `docs/codex-harness.md` whenever behavior, file locations, validation commands, or trust requirements change.
 
 Do not add provider credentials, personal tokens, private MCP server auth, or user-specific absolute paths to repo-scoped harness files.

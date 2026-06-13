@@ -38,12 +38,25 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "matcher": "^(apply_patch|Edit|Write)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/self_feedback.py\" --phase post-tool",
+            "timeout": 60,
+            "statusMessage": "Checking development-flow invariants"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "/usr/bin/python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/self_feedback.py\"",
+            "command": "/usr/bin/python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/self_feedback.py\" --phase stop",
             "timeout": 240,
             "statusMessage": "Running project self-feedback checks"
           }

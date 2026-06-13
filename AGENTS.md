@@ -27,6 +27,8 @@ Treat the ADR as the source of truth when implementation details are ambiguous. 
 - Prefer Japanese for project documentation and user-facing product copy. Code identifiers, comments, and commit-style technical artifacts may use English when clearer.
 - Never commit secrets, API keys, database URLs, cookies, tokens, private keys, or local `.env` files.
 - Use `.env.example` or `.env.local.example` for required environment variable names only.
+- Follow TDD for collector, app logic, shared domain logic, database code, and validation/scoring changes. Add or update the narrowest meaningful Vitest coverage before or with the implementation.
+- After implementation, remove obsolete handoff notes, temporary verification notes, and other stale docs when the code or harness is now the source of truth. ADRs are never "unnecessary docs"; keep ADRs append-only and preserve enduring operational runbooks.
 
 ## Architecture constraints
 
@@ -41,11 +43,13 @@ Treat the ADR as the source of truth when implementation details are ambiguous. 
 
 ## Frontend constraints
 
+- Read [DESIGN.md](DESIGN.md) before creating or substantially changing UI.
 - Build the usable news feed first; do not turn the first screen into a marketing page.
 - The feed must support mobile vertical swipe and desktop wheel/trackpad-as-swipe behavior.
 - Use CSS scroll snap as the baseline interaction and add client-side input control only where needed.
 - Support keyboard navigation: Up for previous, Down for next, Space for next, Shift+Space for previous.
 - Keep article cards readable and dense. Avoid decorative layouts that reduce scan speed.
+- When adding a new `apps/web/src/app/**/page.tsx`, add the sibling `page.stories.tsx`. Stories for small internal components are optional until the user asks for them.
 - Verify responsive behavior with Playwright once a runnable frontend exists.
 
 ## Documentation and ADR rules
@@ -86,6 +90,7 @@ codex execpolicy check --pretty --rules .codex/rules/project.rules -- git reset 
 - Treat accidental secret exposure as P1.
 - Treat destructive commands, unsafe migrations, non-idempotent collector behavior, and unbounded LLM/API concurrency as high risk.
 - For UI changes, check mobile and desktop behavior, text overflow, keyboard interaction, and loading/error/empty states.
+- When a repeated agent mistake, review finding, or policy violation looks useful to promote into the harness, record it in a GitHub Issue using the harness feedback template. If a pattern reaches three occurrences, propose a concrete harness change before implementing it.
 
 ## Codex harness map
 

@@ -29,8 +29,13 @@ AGENTS.md
     test-planner.toml
   hooks/
     codex_hook_guard.py
+    self_feedback.py
   rules/
     project.rules
+.github/
+  dependabot.yml
+  ISSUE_TEMPLATE/
+    harness-feedback.yml
 .agents/
   skills/
     adr-maintainer/
@@ -50,9 +55,11 @@ docs/
 | `AGENTS.md` | リポジトリの恒久的な作業規約、技術スタック、検証方針、レビュー観点 |
 | `.codex/config.toml` | trusted project で使う Codex 既定値、sandbox、approval、hook 有効化、subagent 上限 |
 | `.codex/rules/project.rules` | sandbox 外実行のコマンド判定。破壊的 git 操作、sudo、dependency 変更、push などを制限 |
-| `.codex/hooks.json` | lifecycle hook の登録。`Stop` で自己フィードバック検証を起動 |
+| `.codex/hooks.json` | lifecycle hook の登録。`PostToolUse` で開発フロー不変条件を確認し、`Stop` で自己フィードバック検証を起動 |
 | `.codex/hooks/codex_hook_guard.py` | prompt/command/permission request 内の秘密情報と明確に危険な command を検出 |
-| `.codex/hooks/self_feedback.py` | worktree 変更に応じて `pnpm format:check`、`pnpm lint`、`pnpm typecheck`、`pnpm test`、harness 検証を自動実行 |
+| `.codex/hooks/self_feedback.py` | worktree 変更に応じて開発フロー検査、`pnpm verify`、harness 検証を自動実行 |
+| `.github/dependabot.yml` | npm/pnpm と GitHub Actions の定期アップデートPRを作成 |
+| `.github/ISSUE_TEMPLATE/harness-feedback.yml` | 繰り返し発生した agent 違反やレビュー指摘を記録し、harness 昇格候補を管理 |
 | `.agents/skills/*` | Codex が必要時に読み込む再利用ワークフロー |
 | `.codex/agents/*` | 明示的に subagent を使うときの専門 agent |
 
@@ -83,12 +90,14 @@ codex execpolicy check --pretty --rules .codex/rules/project.rules -- rm -rf nod
 hooks:
 
 ```bash
-python3 -m py_compile .codex/hooks/codex_hook_guard.py
-python3 -m py_compile .codex/hooks/self_feedback.py
+PYTHONPYCACHEPREFIX=/tmp/upto-pycache python3 -m py_compile .codex/hooks/codex_hook_guard.py
+PYTHONPYCACHEPREFIX=/tmp/upto-pycache python3 -m py_compile .codex/hooks/self_feedback.py
 printf '{"prompt":"hello"}' | /usr/bin/python3 .codex/hooks/codex_hook_guard.py --mode user-prompt
 printf '{"prompt":"sk-example-secret-secret-secret-secret"}' | /usr/bin/python3 .codex/hooks/codex_hook_guard.py --mode user-prompt
 printf '{"tool_input":{"command":"git reset --hard"}}' | /usr/bin/python3 .codex/hooks/codex_hook_guard.py --mode pre-tool
 printf '{"tool_input":{"command":"pnpm test"}}' | /usr/bin/python3 .codex/hooks/codex_hook_guard.py --mode pre-tool
+/usr/bin/python3 .codex/hooks/self_feedback.py --phase post-tool
+/usr/bin/python3 .codex/hooks/self_feedback.py --phase stop
 ```
 
 config:
@@ -109,4 +118,8 @@ As of `codex-cli 0.137.0`, `--strict-config` is not supported by the local-only 
 - Keep hooks conservative. They should block only clear high-risk cases to avoid surprising normal development.
 - Prefer rules for command approval behavior and hooks for cross-cutting prompt/tool checks.
 - Use skills for repeatable workflows and subagents for explicit parallel review or exploration.
-- Keep `Stop` self-feedback fast. Escalate browser E2E or Docker checks only when the touched files require them.
+- `PostToolUse` self-feedback checks mechanical development-flow invariants such as page stories and ADR deletion.
+- `Stop` self-feedback runs final checks. For app/package changes it uses `pnpm verify`; for harness changes it also validates hook syntax and command policy.
+- Command hooks must not write human-readable logs to stdout. Codex may parse Stop hook stdout as JSON; write progress and child process output to stderr unless the hook intentionally returns a documented JSON payload.
+- ADR files are append-only decision records and are never treated as obsolete docs. Do not delete `docs/adr/**`; add a new ADR or append a dated note instead.
+- Keep `Stop` self-feedback reasonably fast. Escalate browser E2E, Storybook builds, or Docker checks only when the touched files require them.
