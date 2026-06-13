@@ -12,7 +12,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json --noEmit false",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc -b --noEmit tsconfig.json"
   },
   "dependencies": {
     "normalize-url": "9.0.1",
