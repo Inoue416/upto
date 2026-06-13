@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { FeedArticle } from "../lib/articles";
 
+import { ThemeToggle } from "./theme-toggle";
+
 type ArticleFeedProps = {
   articles: FeedArticle[];
 };
@@ -241,7 +243,7 @@ export function ArticleFeed({ articles }: ArticleFeedProps) {
 
               <div className="mt-auto flex shrink-0 flex-wrap items-center justify-between gap-3 pt-3">
                 <a
-                  className="rounded-md bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+                  className="rounded-md bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-[var(--background)] transition hover:bg-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
                   href={article.originalUrl}
                   rel="noreferrer"
                   target="_blank"
@@ -291,9 +293,12 @@ function AppHeader({ activeIndex, articleCount }: { activeIndex: number; article
           <h1 className="text-lg leading-none font-semibold tracking-normal">Upto</h1>
           <p className="mt-1 text-xs text-[var(--muted)]">日本語ITニュース要約</p>
         </div>
-        <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-sm text-[var(--muted)] shadow-sm">
-          {articleCount === 0 ? "0 / 0" : `${activeIndex + 1} / ${articleCount}`}
-        </span>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-sm text-[var(--muted)] shadow-sm">
+            {articleCount === 0 ? "0 / 0" : `${activeIndex + 1} / ${articleCount}`}
+          </span>
+        </div>
       </div>
     </header>
   );

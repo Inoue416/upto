@@ -13,6 +13,19 @@
   --accent-soft: #e3f0e8;
 }
 
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #151812;
+  --foreground: #f3f0e8;
+  --muted: #b9c0b2;
+  --surface: #20251c;
+  --surface-muted: #1b2018;
+  --border: #3a4232;
+  --border-strong: #56604d;
+  --accent: #8bc7a5;
+  --accent-soft: #24372d;
+}
+
 * {
   box-sizing: border-box;
 }
