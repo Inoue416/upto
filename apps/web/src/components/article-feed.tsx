@@ -243,7 +243,7 @@ export function ArticleFeed({ articles }: ArticleFeedProps) {
 
               <div className="mt-auto flex shrink-0 flex-wrap items-center justify-between gap-3 pt-3">
                 <a
-                  className="rounded-md bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+                  className="rounded-md bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-[var(--background)] transition hover:bg-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
                   href={article.originalUrl}
                   rel="noreferrer"
                   target="_blank"

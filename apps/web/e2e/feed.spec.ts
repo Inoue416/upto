@@ -15,9 +15,11 @@ test("persists the selected color theme across visits", async ({ page }) => {
 
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(page.getByTestId("theme-toggle")).toHaveAttribute("data-theme-icon", "moon");
 
   await page.getByTestId("theme-toggle").click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByTestId("theme-toggle")).toHaveAttribute("data-theme-icon", "sun");
   await expect
     .poll(async () => page.evaluate(() => window.localStorage.getItem("upto-theme")))
     .toBe("dark");
