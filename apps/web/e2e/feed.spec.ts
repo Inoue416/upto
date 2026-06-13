@@ -7,6 +7,32 @@ test("renders the news feed", async ({ page }) => {
   await expect(page.getByRole("button", { name: "次の記事へ" }).first()).toBeVisible();
 });
 
+test("persists the selected color theme across visits", async ({ page }) => {
+  await page.goto("/");
+  await page.evaluate(() => {
+    window.localStorage.setItem("upto-theme", "light");
+  });
+
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+  await page.getByTestId("theme-toggle").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect
+    .poll(async () => page.evaluate(() => window.localStorage.getItem("upto-theme")))
+    .toBe("dark");
+
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("button", { name: "ライトモードに切り替える" })).toBeVisible();
+
+  await page.getByTestId("theme-toggle").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect
+    .poll(async () => page.evaluate(() => window.localStorage.getItem("upto-theme")))
+    .toBe("light");
+});
+
 test("moves through cards with keyboard navigation", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("article-feed")).toHaveAttribute("data-ready", "true");
