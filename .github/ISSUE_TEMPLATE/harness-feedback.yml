@@ -1,0 +1,39 @@
+name: Harness feedback
+description: Record repeated Codex mistakes, review findings, or workflow violations that may deserve harness promotion.
+title: "[Harness feedback]: "
+labels:
+  - harness-feedback
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this issue as the dashboard entry for a repeated agent mistake or workflow violation. When the same pattern reaches three occurrences, propose a concrete harness change.
+  - type: textarea
+    id: pattern
+    attributes:
+      label: Pattern
+      description: What happened, and what rule or workflow did it violate?
+    validations:
+      required: true
+  - type: input
+    id: count
+    attributes:
+      label: Occurrence count
+      description: Number of confirmed occurrences so far.
+      placeholder: "1"
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Link PRs, review comments, CI failures, or local notes that show the pattern.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Harness promotion proposal
+      description: If count is 3 or more, describe the proposed AGENTS, hook, rule, skill, or subagent change.
+    validations:
+      required: false
