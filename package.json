@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "pnpm -r build",
+    "build-storybook": "pnpm --filter @upto/web build-storybook",
     "db:generate": "pnpm --filter @upto/db db:generate",
     "db:migrate": "pnpm --filter @upto/db db:migrate",
     "dev": "pnpm --parallel --filter @upto/web --filter @upto/collector dev",
@@ -13,6 +14,7 @@
     "format:check": "oxfmt --check . \"!docs/**\" \"!AGENTS.md\"",
     "lint": "oxlint .",
     "lint:fix": "oxlint . --fix",
+    "storybook": "pnpm --filter @upto/web storybook",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -b",
