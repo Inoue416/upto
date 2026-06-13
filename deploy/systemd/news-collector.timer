@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Upto news collector three times a day
+
+[Timer]
+OnCalendar=*-*-* 00,08,16:00:00
+Persistent=true
+Unit=news-collector.service
+
+[Install]
+WantedBy=timers.target

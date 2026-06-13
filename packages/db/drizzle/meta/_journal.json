@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1780769179916,
+      "tag": "0000_cute_killraven",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780813483241,
+      "tag": "0001_article_summary_json",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780813669730,
+      "tag": "0002_fixed_zemo",
+      "breakpoints": true
+    }
+  ]
+}

@@ -38,6 +38,8 @@ MVP は **TypeScript モノレポ + Next.js App Router + PostgreSQL + Drizzle OR
 | RSS/XML | `fast-xml-parser` | RSS/Atom の正規化パーサ |
 | URL 正規化 | `normalize-url`、`tldts` | 重複排除、canonical host/path 判定 |
 | バリデーション | Zod | API、バッチ入力、Gemini 出力 JSON の検証 |
+| Linter | oxlint | TypeScript/React/Next.js の高速 lint。ESLint は採用しない |
+| Formatter | oxfmt | TypeScript/JavaScript/CSS/JSON の高速 format。Prettier は採用しない |
 | テスト | Vitest、Playwright | ロジック単体テスト、縦スクロール UI の E2E |
 | 監視 | journald、Docker logs、Sentry、必要時 Prometheus/Grafana | バッチ失敗、Web エラー、LLM エラーの可視化 |
 | CI/CD | GitHub Actions + SSH deploy または GHCR pull | lint/test、Vercel deploy、Ubuntu サーバーへの compose 更新 |
@@ -71,6 +73,34 @@ packages/domain
   URL 正規化
   Gemini 出力 schema
 ```
+
+## 開発ハーネス方針
+
+2026-06-07 時点の実装準備では、ESLint/Prettier ではなく **oxlint 1.68.0** と **oxfmt 0.53.0** を採用する。どちらも Oxc compiler stack 上のツールで、TypeScript/React/Next.js を含む monorepo の高速な自己フィードバックに向いている。
+
+root scripts は以下を標準にする。
+
+```bash
+pnpm format
+pnpm format:check
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm verify
+```
+
+`pnpm verify` は `format:check -> lint -> typecheck -> test` の順に実行する。Codex lifecycle hook の `Stop` でも worktree 変更に応じて同じ自己フィードバックを起動し、AI エージェントが作業直後に機械的な失敗を検出できるようにする。
+
+oxfmt は既存 ADR の append-only 方針と衝突しないよう、既存 `docs/**` と `AGENTS.md` は root script の整形対象から外す。コード、設定、ハーネス、package metadata は oxfmt の対象にする。
+
+2026-06-07 時点で作成済みの開発足場:
+
+- `apps/web`: Next.js 16 App Router、React 19、Tailwind CSS v4 の縦スクロール記事 UI
+- `apps/collector`: dry-run 可能な TypeScript collector entrypoint
+- `packages/domain`: Zod schema、URL 正規化、トレンドスコア、Vitest
+- `packages/db`: Drizzle PostgreSQL schema、client、drizzle-kit config
+- `docker-compose.yml`: local PostgreSQL と collector batch profile
+- `deploy/systemd`: Ubuntu server 用 `news-collector.service` / `news-collector.timer`
 
 ## Web アプリ選定
 

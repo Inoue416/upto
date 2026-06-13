@@ -37,6 +37,18 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/self_feedback.py\"",
+            "timeout": 240,
+            "statusMessage": "Running project self-feedback checks"
+          }
+        ]
+      }
     ]
   }
 }

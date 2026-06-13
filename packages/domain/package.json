@@ -1,0 +1,22 @@
+{
+  "name": "@upto/domain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit false",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "normalize-url": "9.0.1",
+    "tldts": "7.4.2",
+    "zod": "4.4.3"
+  }
+}

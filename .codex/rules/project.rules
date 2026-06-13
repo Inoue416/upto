@@ -87,12 +87,34 @@ prefix_rule(
 )
 
 prefix_rule(
+    pattern = ["pnpm", "approve-builds"],
+    decision = "prompt",
+    justification = "Approving dependency build scripts changes the executable supply-chain surface; review the package list first.",
+    match = [
+        "pnpm approve-builds",
+    ],
+)
+
+prefix_rule(
     pattern = [["npm", "pnpm"], "i"],
     decision = "prompt",
     justification = "Dependency installation changes the local supply-chain surface; confirm before installing packages.",
     match = [
         "npm i",
         "pnpm i",
+    ],
+)
+
+prefix_rule(
+    pattern = [["npm", "pnpm", "yarn", "bun"], ["format", "format:check", "lint", "lint:fix", "test", "typecheck", "verify"]],
+    decision = "allow",
+    justification = "Repository verification commands are safe and expected for self-feedback.",
+    match = [
+        "pnpm format:check",
+        "pnpm lint",
+        "pnpm typecheck",
+        "pnpm test",
+        "pnpm verify",
     ],
 )
 

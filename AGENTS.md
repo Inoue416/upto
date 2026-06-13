@@ -14,6 +14,7 @@ The accepted MVP direction is documented in [docs/adr/0001-technology-stack.md](
 - Drizzle ORM and Drizzle Kit
 - Ubuntu Server, Docker Compose, and systemd timer for the collector batch
 - Gemini API through `@google/genai`
+- oxlint and oxfmt for fast linting and formatting
 - Vitest and Playwright for verification
 
 Treat the ADR as the source of truth when implementation details are ambiguous. If the direction changes, create a new ADR instead of silently rewriting accepted decisions.
@@ -61,11 +62,14 @@ Run the narrowest meaningful checks for the files changed.
 When the monorepo exists, prefer:
 
 ```bash
+pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm test
 pnpm exec playwright test
 ```
+
+Use `pnpm format` to apply oxfmt. Do not add ESLint or Prettier unless the user explicitly reverses the oxlint/oxfmt decision.
 
 When changing only Markdown or Codex harness files, validate the relevant harness syntax instead of pretending application tests exist.
 

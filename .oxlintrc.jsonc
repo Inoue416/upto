@@ -1,0 +1,55 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": [
+    "import",
+    "jsx-a11y",
+    "nextjs",
+    "oxc",
+    "react",
+    "react-perf",
+    "typescript",
+    "unicorn",
+  ],
+  "env": {
+    "browser": true,
+    "es2022": true,
+    "node": true,
+  },
+  "settings": {
+    "next": {
+      "rootDir": "apps/web/",
+    },
+    "react": {
+      "version": "19.2.7",
+    },
+  },
+  "ignorePatterns": [
+    ".next/**",
+    "coverage/**",
+    "dist/**",
+    "drizzle/**",
+    "node_modules/**",
+    "out/**",
+    "playwright-report/**",
+    "test-results/**",
+  ],
+  "rules": {
+    "eslint/no-console": "warn",
+    "import/no-cycle": "error",
+    "typescript/consistent-type-imports": "error",
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.spec.ts", "vitest.config.ts"],
+      "rules": {
+        "eslint/no-console": "off",
+      },
+    },
+    {
+      "files": ["apps/collector/**/*.ts", "packages/db/**/*.ts"],
+      "rules": {
+        "eslint/no-console": "off",
+      },
+    },
+  ],
+}
