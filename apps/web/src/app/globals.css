@@ -36,7 +36,7 @@ body {
     sans-serif;
 }
 
-a {
+a:not([class]) {
   color: inherit;
 }
 

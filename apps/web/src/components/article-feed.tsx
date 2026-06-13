@@ -17,12 +17,18 @@ export function ArticleFeed({ articles }: ArticleFeedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const wheelRef = useRef({
     accumulatedDelta: 0,
+    lastDirection: 0,
     lastMoveAt: 0,
   });
+  const activeIndexRef = useRef(activeIndex);
 
   useEffect(() => {
     setIsReady(true);
   }, []);
+
+  useEffect(() => {
+    activeIndexRef.current = activeIndex;
+  }, [activeIndex]);
 
   const scrollToIndex = useCallback(
     (nextIndex: number) => {
@@ -97,8 +103,13 @@ export function ArticleFeed({ articles }: ArticleFeedProps) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [activeIndex, scrollToIndex]);
 
-  const handleWheel = useCallback(
-    (event: React.WheelEvent<HTMLDivElement>) => {
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) {
+      return;
+    }
+
+    function onWheel(event: WheelEvent) {
       if (articles.length < 2 || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
         return;
       }
@@ -111,24 +122,32 @@ export function ArticleFeed({ articles }: ArticleFeedProps) {
         return;
       }
 
+      const direction = Math.sign(event.deltaY);
+      if (direction !== wheelState.lastDirection) {
+        wheelState.accumulatedDelta = 0;
+        wheelState.lastDirection = direction;
+      }
+
       wheelState.accumulatedDelta += event.deltaY;
+      event.preventDefault();
       if (Math.abs(wheelState.accumulatedDelta) < wheelThreshold) {
         return;
       }
 
-      event.preventDefault();
-      scrollToIndex(activeIndex + (wheelState.accumulatedDelta > 0 ? 1 : -1));
+      scrollToIndex(activeIndexRef.current + (wheelState.accumulatedDelta > 0 ? 1 : -1));
       wheelState.accumulatedDelta = 0;
       wheelState.lastMoveAt = now;
-    },
-    [activeIndex, articles.length, scrollToIndex],
-  );
+    }
+
+    container.addEventListener("wheel", onWheel, { passive: false });
+    return () => container.removeEventListener("wheel", onWheel);
+  }, [articles.length, scrollToIndex]);
 
   if (articles.length === 0) {
     return (
-      <section className="min-h-screen px-4">
+      <section className="flex h-dvh flex-col overflow-hidden">
         <AppHeader activeIndex={0} articleCount={0} />
-        <div className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center pt-16">
+        <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col justify-center px-4">
           <p className="text-sm font-medium text-[var(--accent)]">Upto</p>
           <h1 className="mt-3 text-3xl leading-tight font-semibold text-balance">
             まだ表示できる記事がありません
@@ -143,113 +162,119 @@ export function ArticleFeed({ articles }: ArticleFeedProps) {
   }
 
   return (
-    <section className="min-h-screen">
+    <section className="flex h-dvh flex-col overflow-hidden">
       <AppHeader activeIndex={activeIndex} articleCount={articles.length} />
 
       <div
         ref={containerRef}
-        className="h-screen snap-y snap-mandatory overflow-y-auto overscroll-y-contain scroll-smooth pt-14"
+        className="min-h-0 flex-1 snap-y snap-mandatory overflow-y-auto overscroll-y-contain scroll-smooth"
         data-ready={isReady ? "true" : "false"}
         data-testid="article-feed"
-        onWheel={handleWheel}
       >
         {articles.map((article, index) => (
           <article
             data-index={index}
             key={article.id}
-            className="mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-3xl snap-start flex-col justify-center px-4 py-6 sm:py-8"
+            className="mx-auto flex h-full max-w-3xl snap-start items-center px-4 py-3"
           >
-            <div className="mb-4 flex flex-wrap items-center gap-2 text-xs font-medium">
-              <span className="rounded-full bg-[var(--accent-soft)] px-3 py-1 text-[var(--accent)]">
-                {article.sourceName}
-              </span>
-              <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-[var(--muted)] shadow-sm">
-                {difficultyLabel(article.difficulty)}
-              </span>
-              {article.publishedAt ? (
-                <time
-                  className="text-[var(--muted)]"
-                  dateTime={article.publishedAt}
-                  title={formatAbsoluteDate(article.publishedAt)}
-                >
-                  {formatRelativeDate(article.publishedAt)}
-                </time>
-              ) : null}
-            </div>
-
-            <h2 className="text-2xl leading-tight font-semibold text-balance sm:text-4xl">
-              {article.title}
-            </h2>
-            {article.oneLineSummary ? (
-              <p className="mt-4 text-lg leading-8 font-medium text-[var(--foreground)]">
-                {article.oneLineSummary}
-              </p>
-            ) : null}
-            <p className="mt-4 leading-8 text-[var(--muted)]">{article.summary}</p>
-
-            <ul className="mt-5 space-y-3">
-              {article.summaryBullets.map((bullet) => (
-                <li
-                  key={bullet}
-                  className="rounded-lg bg-[var(--surface)] px-4 py-3 leading-7 shadow-sm"
-                >
-                  {bullet}
-                </li>
-              ))}
-            </ul>
-
-            {article.whyItMatters ? (
-              <p className="mt-5 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3 text-sm leading-7 text-[var(--muted)]">
-                {article.whyItMatters}
-              </p>
-            ) : null}
-
-            <div className="mt-5 flex flex-wrap gap-2">
-              {article.tags.slice(0, 6).map((tag) => (
-                <span
-                  className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted)]"
-                  key={tag}
-                >
-                  #{tag}
+            <div className="flex h-full w-full flex-col overflow-hidden">
+              <div className="mb-2 flex shrink-0 flex-wrap items-center gap-2 text-xs font-medium">
+                <span className="rounded-full bg-[var(--accent-soft)] px-3 py-1 text-[var(--accent)]">
+                  {article.sourceName}
                 </span>
-              ))}
-            </div>
-
-            <div className="mt-7 flex flex-wrap items-center justify-between gap-3">
-              <a
-                className="rounded-md bg-[var(--foreground)] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
-                href={article.originalUrl}
-                rel="noreferrer"
-                target="_blank"
-              >
-                元記事を読む
-              </a>
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-[var(--muted)]">
-                  score {Math.round(article.score)} / {article.bookmarks} bookmarks
+                <span className="rounded-full bg-[var(--surface)] px-3 py-1 text-[var(--muted)] shadow-sm">
+                  {difficultyLabel(article.difficulty)}
                 </span>
-                <button
-                  className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-45"
-                  disabled={articles.length < 2}
-                  onClick={() => scrollToIndex(index === articles.length - 1 ? 0 : index + 1)}
-                  type="button"
-                >
-                  {index === articles.length - 1 ? "先頭へ戻る" : "次の記事へ"}
-                </button>
+                {article.publishedAt ? (
+                  <time
+                    className="text-[var(--muted)]"
+                    dateTime={article.publishedAt}
+                    title={formatAbsoluteDate(article.publishedAt)}
+                  >
+                    {formatRelativeDate(article.publishedAt)}
+                  </time>
+                ) : null}
               </div>
-            </div>
 
-            <div className="mt-6 flex gap-1.5" aria-hidden="true">
-              {articles.map((item, dotIndex) => (
-                <span
-                  className={
-                    dotIndex === index
-                      ? "h-1.5 w-5 rounded-full bg-[var(--accent)]"
-                      : "h-1.5 w-1.5 rounded-full bg-[var(--border-strong)]"
-                  }
-                  key={item.id}
-                />
-              ))}
+              <h2 className="line-clamp-2 shrink-0 text-xl leading-snug font-semibold text-balance sm:text-2xl">
+                {article.title}
+              </h2>
+              {article.oneLineSummary ? (
+                <p className="mt-2 line-clamp-1 shrink-0 text-sm leading-6 font-medium text-[var(--foreground)] sm:text-base">
+                  {article.oneLineSummary}
+                </p>
+              ) : null}
+              <p className="mt-2 hidden shrink-0 text-sm leading-6 text-[var(--muted)] sm:line-clamp-1 sm:block">
+                {article.summary}
+              </p>
+
+              <ul className="mt-3 shrink-0 space-y-1.5" data-summary-bullets="true">
+                {article.summaryBullets.slice(0, 3).map((bullet) => (
+                  <li
+                    key={bullet}
+                    className="rounded-lg bg-[var(--surface)] px-3 py-1.5 text-sm leading-5 shadow-sm"
+                  >
+                    {bullet}
+                  </li>
+                ))}
+              </ul>
+
+              {article.whyItMatters ? (
+                <p
+                  className="mt-3 shrink-0 rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1.5 text-xs leading-5 text-[var(--muted)]"
+                  data-why-it-matters="true"
+                >
+                  {article.whyItMatters}
+                </p>
+              ) : null}
+
+              <div className="mt-3 flex h-6 shrink-0 flex-nowrap gap-2 overflow-hidden">
+                {article.tags.slice(0, 3).map((tag) => (
+                  <span
+                    className="shrink-0 rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted)]"
+                    key={tag}
+                  >
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+
+              <div className="mt-auto flex shrink-0 flex-wrap items-center justify-between gap-3 pt-3">
+                <a
+                  className="rounded-md bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+                  href={article.originalUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  元記事を読む
+                </a>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs whitespace-nowrap text-[var(--muted)]">
+                    score {Math.round(article.score)} / {article.bookmarks} bookmarks
+                  </span>
+                  <button
+                    className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-45"
+                    disabled={articles.length < 2}
+                    onClick={() => scrollToIndex(index === articles.length - 1 ? 0 : index + 1)}
+                    type="button"
+                  >
+                    {index === articles.length - 1 ? "先頭へ戻る" : "次の記事へ"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-2 flex shrink-0 gap-1.5" aria-hidden="true">
+                {articles.map((item, dotIndex) => (
+                  <span
+                    className={
+                      dotIndex === index
+                        ? "h-1.5 w-5 rounded-full bg-[var(--accent)]"
+                        : "h-1.5 w-1.5 rounded-full bg-[var(--border-strong)]"
+                    }
+                    key={item.id}
+                  />
+                ))}
+              </div>
             </div>
           </article>
         ))}
@@ -260,7 +285,7 @@ export function ArticleFeed({ articles }: ArticleFeedProps) {
 
 function AppHeader({ activeIndex, articleCount }: { activeIndex: number; articleCount: number }) {
   return (
-    <header className="fixed top-0 right-0 left-0 z-10 border-b border-[var(--border)] bg-[var(--background)]/92 px-4 py-3 backdrop-blur">
+    <header className="shrink-0 border-b border-[var(--border)] bg-[var(--background)]/92 px-4 py-3 backdrop-blur">
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-4">
         <div>
           <h1 className="text-lg leading-none font-semibold tracking-normal">Upto</h1>
