@@ -24,6 +24,11 @@ export type FeedJob = {
   sourceId: string;
 };
 
+export type ExistingArticle = {
+  id: string;
+  summaryStatus: "failed" | "pending" | "summarized";
+};
+
 export type SaveArticleInput = {
   content: ExtractedContent;
   item: FeedItem;
@@ -35,10 +40,12 @@ export type SaveArticleInput = {
 };
 
 export type Persistence = {
+  findArticleByNormalizedUrl(normalizedUrl: string): Promise<ExistingArticle | null>;
   finishFeedJob(jobId: string, result: FinishFeedJobInput): Promise<void>;
   markArticleFailed(input: MarkArticleFailedInput): Promise<void>;
   saveArticle(input: SaveArticleInput): Promise<string>;
   startFeedJob(feed: FeedTarget): Promise<FeedJob>;
+  updateArticleMetrics(input: UpdateArticleMetricsInput): Promise<void>;
 };
 
 export type FinishFeedJobInput = {
@@ -52,6 +59,13 @@ export type MarkArticleFailedInput = {
   item: FeedItem;
   normalizedUrl: string;
   sourceId: string;
+};
+
+export type UpdateArticleMetricsInput = {
+  articleId: string;
+  bookmarks: number;
+  score: number;
+  views: number;
 };
 
 export function createPersistence(databaseUrl: string): Persistence {
@@ -83,6 +97,19 @@ class DbPersistence implements Persistence {
       jobId: job.id,
       sourceId,
     };
+  }
+
+  async findArticleByNormalizedUrl(normalizedUrl: string): Promise<ExistingArticle | null> {
+    const [article] = await this.db
+      .select({
+        id: articles.id,
+        summaryStatus: articles.summaryStatus,
+      })
+      .from(articles)
+      .where(eq(articles.normalizedUrl, normalizedUrl))
+      .limit(1);
+
+    return article ?? null;
   }
 
   async saveArticle(input: SaveArticleInput): Promise<string> {
@@ -179,6 +206,28 @@ class DbPersistence implements Persistence {
       });
 
     return article.id;
+  }
+
+  async updateArticleMetrics(input: UpdateArticleMetricsInput): Promise<void> {
+    const now = new Date();
+    await this.db
+      .insert(articleMetrics)
+      .values({
+        articleId: input.articleId,
+        bookmarks: input.bookmarks,
+        measuredAt: now,
+        score: Math.round(input.score),
+        views: input.views,
+      })
+      .onConflictDoUpdate({
+        set: {
+          bookmarks: input.bookmarks,
+          measuredAt: now,
+          score: Math.round(input.score),
+          views: input.views,
+        },
+        target: articleMetrics.articleId,
+      });
   }
 
   async markArticleFailed(input: MarkArticleFailedInput): Promise<void> {
