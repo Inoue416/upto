@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { getAppSetting, setAppSetting } from "../lib/user-state-db";
+
 type Theme = "light" | "dark";
 
 const storageKey = "upto-theme";
@@ -13,6 +15,7 @@ function isTheme(value: string | null): value is Theme {
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
   window.localStorage.setItem(storageKey, theme);
+  void setAppSetting("theme", theme);
 }
 
 export function ThemeToggle() {
@@ -23,6 +26,17 @@ export function ThemeToggle() {
     if (isTheme(currentTheme)) {
       setTheme(currentTheme);
     }
+
+    void getAppSetting("theme").then((setting) => {
+      const storedTheme = setting?.value ?? null;
+      if (!isTheme(storedTheme)) {
+        return;
+      }
+
+      document.documentElement.dataset.theme = storedTheme;
+      window.localStorage.setItem(storageKey, storedTheme);
+      setTheme(storedTheme);
+    });
   }, []);
 
   function toggleTheme() {
