@@ -30,8 +30,8 @@ export const collectorConfigSchema = z.object({
   databaseUrl: z.string().optional(),
   dryRun: booleanEnvironmentSchema.default(true),
   geminiApiKey: z.string().optional(),
-  geminiModelDefault: z.string().default("gemini-2.5-flash-lite"),
-  geminiModelImportant: z.string().default("gemini-2.5-flash"),
+  geminiModelDefault: z.string().default("gemini-3.1-flash-lite"),
+  geminiModelImportant: z.string().default("gemini-3.0-flash"),
   maxItemsPerFeed: z.coerce.number().int().positive().default(20),
   summaryChunkChars: z.coerce.number().int().min(2000).default(12000),
 });

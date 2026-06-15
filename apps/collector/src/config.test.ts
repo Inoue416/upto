@@ -14,4 +14,11 @@ describe("readCollectorConfig", () => {
   it("defaults to dry-run mode", () => {
     expect(readCollectorConfig({}).dryRun).toBe(true);
   });
+
+  it("defaults to the production Gemini models", () => {
+    expect(readCollectorConfig({})).toMatchObject({
+      geminiModelDefault: "gemini-3.1-flash-lite",
+      geminiModelImportant: "gemini-3.0-flash",
+    });
+  });
 });
