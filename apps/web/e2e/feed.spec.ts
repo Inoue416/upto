@@ -228,32 +228,71 @@ test("moves only one card with wheel navigation", async ({ page }) => {
   await expect(feed).toHaveAttribute("data-ready", "true");
 
   await page.mouse.move(400, 320);
+  const feedHeight = await feed.evaluate((element) => element.clientHeight);
+  await page.mouse.wheel(0, 900);
   await page.mouse.wheel(0, 900);
 
   await expect(page.locator("article[data-index='1'] h2")).toBeInViewport();
-  const feedHeight = await feed.evaluate((element) => element.clientHeight);
   await expect.poll(async () => feed.evaluate((element) => element.scrollTop)).toBe(feedHeight);
 
+  await page.waitForTimeout(600);
   await page.mouse.wheel(0, 900);
-  await page.waitForTimeout(100);
-  await expect
-    .poll(async () => feed.evaluate((element) => element.scrollTop))
-    .toBeLessThan(feedHeight * 1.5);
+  await expect.poll(async () => feed.evaluate((element) => element.scrollTop)).toBe(feedHeight * 2);
   expect(consoleMessages.join("\n")).not.toContain(
     "Unable to preventDefault inside passive event listener invocation",
   );
 });
 
-test("shows the end-of-feed experience after the last article", async ({ page }) => {
+test("loads additional articles before showing the end-of-feed experience", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("article-feed")).toHaveAttribute("data-ready", "true");
+  await expect(page.getByTestId("feed-complete")).toHaveCount(0);
 
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("ArrowDown");
+  await page.locator("article[data-index='8']").scrollIntoViewIfNeeded();
+  await expect(page.locator("article[data-index='8'] h2")).toBeInViewport();
+  for (const title of ["fixture pagination article 11", "fixture pagination article 12"]) {
+    const heading = page.getByRole("heading", { name: title });
+    await expect(heading).toBeAttached();
+    await heading.scrollIntoViewIfNeeded();
+    await expect(heading).toBeInViewport();
+  }
 
+  await page.getByTestId("feed-complete").scrollIntoViewIfNeeded();
   await expect(page.getByTestId("feed-complete")).toBeInViewport();
-  await expect(page.getByRole("heading", { name: "🎉 今日の新着は以上です" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今日の新着は以上です" })).toBeVisible();
   await expect(page.getByText("今週の人気記事")).toBeVisible();
   await expect(page.getByText("AIまとめ")).toBeVisible();
   await expect(page.getByText("おすすめ記事")).toBeVisible();
+});
+
+test("shows load-more failure and retries additional article loading", async ({ page }) => {
+  let requestCount = 0;
+  await page.route("**/api/articles**", async (route) => {
+    requestCount += 1;
+    if (requestCount === 1) {
+      await route.fulfill({
+        body: JSON.stringify({ error: "boom" }),
+        contentType: "application/json",
+        status: 500,
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/");
+  await expect(page.getByTestId("article-feed")).toHaveAttribute("data-ready", "true");
+
+  await page.locator("article[data-index='8']").scrollIntoViewIfNeeded();
+  await expect.poll(() => requestCount).toBe(1);
+  await page.getByTestId("feed-load-more").scrollIntoViewIfNeeded();
+
+  await expect(page.getByTestId("feed-load-more")).toBeInViewport();
+  await expect(page.getByRole("heading", { name: "追加読み込みに失敗しました" })).toBeVisible();
+
+  await page.getByRole("button", { name: "再試行" }).click();
+
+  await expect(page.locator("article[data-index='10'] h2")).toBeInViewport();
+  expect(requestCount).toBeGreaterThanOrEqual(2);
 });

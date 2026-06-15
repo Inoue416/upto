@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { FeedArticle } from "../lib/articles";
+import type { ArticlePage, FeedArticle } from "../lib/articles";
 
 import { useUserArticleState } from "../lib/use-user-article-state";
 import { markArticleRead, markArticleSaved, saveReadingProgress } from "../lib/user-state-db";
@@ -11,36 +11,63 @@ import { ThemeToggle } from "./theme-toggle";
 type ArticleFeedProps = {
   articles: FeedArticle[];
   feedType?: string;
+  initialActiveIndex?: number;
+  initialCursor?: string | null;
+  initialHasMore?: boolean;
+  loadMoreArticles?: (cursor: string, limit: number) => Promise<ArticlePage>;
 };
 
 const wheelThreshold = 70;
 const wheelCooldownMs = 520;
+const loadMorePageSize = 10;
 
-export function ArticleFeed({ articles, feedType = "home" }: ArticleFeedProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
+export function ArticleFeed({
+  articles,
+  feedType = "home",
+  initialActiveIndex = 0,
+  initialCursor = null,
+  initialHasMore = false,
+  loadMoreArticles = fetchArticlePage,
+}: ArticleFeedProps) {
+  const [feedArticles, setFeedArticles] = useState(() => articles);
+  const [activeIndex, setActiveIndex] = useState(initialActiveIndex);
   const [detailArticle, setDetailArticle] = useState<FeedArticle | null>(null);
+  const [hasMore, setHasMore] = useState(initialHasMore);
   const [hasRestoredProgress, setHasRestoredProgress] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(initialCursor);
   const containerRef = useRef<HTMLDivElement>(null);
+  const isLoadingMoreRef = useRef(false);
   const wheelRef = useRef({
     accumulatedDelta: 0,
     lastDirection: 0,
     lastMoveAt: 0,
   });
   const activeIndexRef = useRef(activeIndex);
-  const articleIds = useMemo(() => articles.map((article) => article.id), [articles]);
-  const articleIdsKey = useMemo(() => articleIds.join("\u001f"), [articleIds]);
+  const initialArticleIdsKey = useMemo(
+    () => articles.map((article) => article.id).join("\u001f"),
+    [articles],
+  );
+  const articleIds = useMemo(() => feedArticles.map((article) => article.id), [feedArticles]);
   const userState = useUserArticleState(articleIds, feedType);
-  const activeArticle = activeIndex < articles.length ? articles[activeIndex] : null;
+  const activeArticle = activeIndex < feedArticles.length ? feedArticles[activeIndex] : null;
+  const hasTerminalCard = !hasMore;
 
   useEffect(() => {
     setIsReady(true);
   }, []);
 
   useEffect(() => {
-    setActiveIndex(0);
+    setFeedArticles(articles);
+    setNextCursor(initialCursor);
+    setHasMore(initialHasMore);
+    setIsLoadingMore(false);
+    setLoadMoreError(null);
+    setActiveIndex(initialActiveIndex);
     setHasRestoredProgress(false);
-  }, [articleIdsKey, feedType]);
+  }, [articles, initialActiveIndex, initialArticleIdsKey, initialCursor, initialHasMore, feedType]);
 
   useEffect(() => {
     activeIndexRef.current = activeIndex;
@@ -48,11 +75,12 @@ export function ArticleFeed({ articles, feedType = "home" }: ArticleFeedProps) {
 
   const scrollToIndex = useCallback(
     (nextIndex: number, behavior: ScrollBehavior = "smooth") => {
-      if (articles.length === 0) {
+      if (feedArticles.length === 0) {
         return;
       }
 
-      const boundedIndex = Math.max(0, Math.min(nextIndex, articles.length));
+      const maxIndex = hasMore || hasTerminalCard ? feedArticles.length : feedArticles.length - 1;
+      const boundedIndex = Math.max(0, Math.min(nextIndex, maxIndex));
       const container = containerRef.current;
       const target = container?.children.item(boundedIndex);
       activeIndexRef.current = boundedIndex;
@@ -66,12 +94,18 @@ export function ArticleFeed({ articles, feedType = "home" }: ArticleFeedProps) {
         top: target.offsetTop - container.offsetTop,
       });
     },
-    [articles.length],
+    [feedArticles.length, hasMore, hasTerminalCard],
   );
 
   useEffect(() => {
+    if (isReady && initialActiveIndex > 0) {
+      window.requestAnimationFrame(() => scrollToIndex(initialActiveIndex, "auto"));
+    }
+  }, [initialActiveIndex, isReady, scrollToIndex]);
+
+  useEffect(() => {
     const container = containerRef.current;
-    if (!container || articles.length === 0) {
+    if (!container || feedArticles.length === 0) {
       return;
     }
 
@@ -101,14 +135,14 @@ export function ArticleFeed({ articles, feedType = "home" }: ArticleFeedProps) {
     }
 
     return () => observer.disconnect();
-  }, [articles.length]);
+  }, [feedArticles.length, hasMore, isLoadingMore, loadMoreError]);
 
   useEffect(() => {
-    if (!userState.isLoaded || hasRestoredProgress || articles.length === 0) {
+    if (!userState.isLoaded || hasRestoredProgress || feedArticles.length === 0) {
       return;
     }
 
-    const restoredIndex = articles.findIndex(
+    const restoredIndex = feedArticles.findIndex(
       (article) => article.id === userState.readingProgressArticleId,
     );
     setHasRestoredProgress(true);
@@ -116,7 +150,7 @@ export function ArticleFeed({ articles, feedType = "home" }: ArticleFeedProps) {
       window.requestAnimationFrame(() => scrollToIndex(restoredIndex, "auto"));
     }
   }, [
-    articles,
+    feedArticles,
     hasRestoredProgress,
     scrollToIndex,
     userState.isLoaded,
@@ -171,7 +205,7 @@ export function ArticleFeed({ articles, feedType = "home" }: ArticleFeedProps) {
     }
 
     function onWheel(event: WheelEvent) {
-      if (articles.length === 0 || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
+      if (feedArticles.length === 0 || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {
         return;
       }
 
@@ -202,7 +236,51 @@ export function ArticleFeed({ articles, feedType = "home" }: ArticleFeedProps) {
 
     container.addEventListener("wheel", onWheel, { passive: false });
     return () => container.removeEventListener("wheel", onWheel);
-  }, [articles.length, scrollToIndex]);
+  }, [feedArticles.length, scrollToIndex]);
+
+  const loadMore = useCallback(async () => {
+    if (!hasMore || !nextCursor || isLoadingMoreRef.current) {
+      return false;
+    }
+
+    isLoadingMoreRef.current = true;
+    setIsLoadingMore(true);
+    setLoadMoreError(null);
+
+    try {
+      const page = await loadMoreArticles(nextCursor, loadMorePageSize);
+      setFeedArticles((currentArticles) => {
+        const existingIds = new Set(currentArticles.map((article) => article.id));
+        const newArticles = page.articles.filter((article) => !existingIds.has(article.id));
+        return [...currentArticles, ...newArticles];
+      });
+      setNextCursor(page.nextCursor);
+      setHasMore(page.hasMore);
+      return true;
+    } catch {
+      setLoadMoreError("追加読み込みに失敗しました");
+      return false;
+    } finally {
+      isLoadingMoreRef.current = false;
+      setIsLoadingMore(false);
+    }
+  }, [hasMore, loadMoreArticles, nextCursor]);
+
+  useEffect(() => {
+    if (activeIndex >= feedArticles.length - 2 && !loadMoreError) {
+      void loadMore();
+    }
+  }, [activeIndex, feedArticles.length, loadMore, loadMoreError]);
+
+  async function moveForwardFromArticle(index: number) {
+    if (index === feedArticles.length - 1 && hasMore) {
+      const loaded = await loadMore();
+      scrollToIndex(loaded ? index + 1 : feedArticles.length);
+      return;
+    }
+
+    scrollToIndex(index + 1);
+  }
 
   function openDetail(article: FeedArticle) {
     setDetailArticle(article);
@@ -213,10 +291,10 @@ export function ArticleFeed({ articles, feedType = "home" }: ArticleFeedProps) {
     void markArticleSaved(article.id, !isSaved);
   }
 
-  if (articles.length === 0) {
+  if (feedArticles.length === 0) {
     return (
       <section className="flex h-dvh flex-col overflow-hidden">
-        <AppHeader activeIndex={0} articleCount={0} />
+        <AppHeader activeIndex={0} articleCount={0} hasMore={false} />
         <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col justify-center px-4">
           <p className="text-sm font-medium text-[var(--accent)]">Upto</p>
           <h1 className="mt-3 text-3xl leading-tight font-semibold text-balance">
@@ -233,7 +311,7 @@ export function ArticleFeed({ articles, feedType = "home" }: ArticleFeedProps) {
 
   return (
     <section className="flex h-dvh flex-col overflow-hidden">
-      <AppHeader activeIndex={activeIndex} articleCount={articles.length} />
+      <AppHeader activeIndex={activeIndex} articleCount={feedArticles.length} hasMore={hasMore} />
 
       <div
         ref={containerRef}
@@ -241,7 +319,7 @@ export function ArticleFeed({ articles, feedType = "home" }: ArticleFeedProps) {
         data-ready={isReady ? "true" : "false"}
         data-testid="article-feed"
       >
-        {articles.map((article, index) => {
+        {feedArticles.map((article, index) => {
           const isRead = userState.readArticleIds.has(article.id);
           const isSaved = userState.savedArticleIds.has(article.id);
 
@@ -382,16 +460,22 @@ export function ArticleFeed({ articles, feedType = "home" }: ArticleFeedProps) {
                     </button>
                     <button
                       className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm transition hover:border-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-45"
-                      onClick={() => scrollToIndex(index + 1)}
+                      onClick={() => {
+                        void moveForwardFromArticle(index);
+                      }}
                       type="button"
                     >
-                      {index === articles.length - 1 ? "読み終える" : "次の記事へ"}
+                      {index === feedArticles.length - 1
+                        ? hasMore
+                          ? "追加記事を読む"
+                          : "読み終える"
+                        : "次の記事へ"}
                     </button>
                   </div>
                 </div>
 
                 <div className="mt-2 flex shrink-0 gap-1.5" aria-hidden="true">
-                  {articles.map((item, dotIndex) => (
+                  {feedArticles.map((item, dotIndex) => (
                     <span
                       className={
                         dotIndex === index
@@ -406,38 +490,18 @@ export function ArticleFeed({ articles, feedType = "home" }: ArticleFeedProps) {
             </article>
           );
         })}
-        <article
-          className="mx-auto flex h-full max-w-3xl snap-start items-center px-4 py-3"
-          data-index={articles.length}
-          data-testid="feed-complete"
-        >
-          <div className="w-full">
-            <p className="text-sm font-medium text-[var(--accent)]">Upto</p>
-            <h2 className="mt-3 text-3xl leading-tight font-semibold text-balance">
-              🎉 今日の新着は以上です
-            </h2>
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              {["今週の人気記事", "AIまとめ", "おすすめ記事"].map((label) => (
-                <div
-                  className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm"
-                  key={label}
-                >
-                  <p className="text-sm font-semibold">{label}</p>
-                  <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
-                    追加フィードの候補として準備中です。
-                  </p>
-                </div>
-              ))}
-            </div>
-            <button
-              className="mt-6 rounded-md bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-[var(--background)] transition hover:bg-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
-              onClick={() => scrollToIndex(0)}
-              type="button"
-            >
-              先頭へ戻る
-            </button>
-          </div>
-        </article>
+        {hasMore ? (
+          <LoadMoreStatusCard
+            index={feedArticles.length}
+            isLoading={isLoadingMore}
+            message={loadMoreError}
+            onRetry={() => {
+              void loadMore();
+            }}
+          />
+        ) : (
+          <FeedCompleteCard index={feedArticles.length} onBackToTop={() => scrollToIndex(0)} />
+        )}
       </div>
       {detailArticle ? (
         <ArticleDetailDialog article={detailArticle} onClose={() => setDetailArticle(null)} />
@@ -446,7 +510,15 @@ export function ArticleFeed({ articles, feedType = "home" }: ArticleFeedProps) {
   );
 }
 
-function AppHeader({ activeIndex, articleCount }: { activeIndex: number; articleCount: number }) {
+function AppHeader({
+  activeIndex,
+  articleCount,
+  hasMore,
+}: {
+  activeIndex: number;
+  articleCount: number;
+  hasMore: boolean;
+}) {
   return (
     <header className="shrink-0 border-b border-[var(--border)] bg-[var(--background)]/92 px-4 py-3 backdrop-blur">
       <div className="mx-auto flex max-w-3xl items-center justify-between gap-4">
@@ -460,12 +532,91 @@ function AppHeader({ activeIndex, articleCount }: { activeIndex: number; article
             {articleCount === 0
               ? "0 / 0"
               : activeIndex >= articleCount
-                ? "完了"
+                ? hasMore
+                  ? `${articleCount} / ${articleCount}`
+                  : "完了"
                 : `${activeIndex + 1} / ${articleCount}`}
           </span>
         </div>
       </div>
     </header>
+  );
+}
+
+function LoadMoreStatusCard({
+  index,
+  isLoading,
+  message,
+  onRetry,
+}: {
+  index: number;
+  isLoading: boolean;
+  message: string | null;
+  onRetry: () => void;
+}) {
+  return (
+    <article
+      className="mx-auto flex h-full max-w-3xl snap-start items-center px-4 py-3"
+      data-index={index}
+      data-testid="feed-load-more"
+    >
+      <div className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm">
+        <p className="text-sm font-medium text-[var(--accent)]">Upto</p>
+        <h2 className="mt-3 text-2xl leading-tight font-semibold text-balance">
+          {message ? "追加読み込みに失敗しました" : "追加記事を読み込んでいます"}
+        </h2>
+        <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+          {message ? "通信状態を確認してから再試行してください。" : "次の記事を準備しています。"}
+        </p>
+        {message ? (
+          <button
+            className="mt-5 rounded-md bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-[var(--background)] transition hover:bg-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-45"
+            disabled={isLoading}
+            onClick={onRetry}
+            type="button"
+          >
+            {isLoading ? "再試行中" : "再試行"}
+          </button>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
+function FeedCompleteCard({ index, onBackToTop }: { index: number; onBackToTop: () => void }) {
+  return (
+    <article
+      className="mx-auto flex h-full max-w-3xl snap-start items-center px-4 py-3"
+      data-index={index}
+      data-testid="feed-complete"
+    >
+      <div className="w-full">
+        <p className="text-sm font-medium text-[var(--accent)]">Upto</p>
+        <h2 className="mt-3 text-3xl leading-tight font-semibold text-balance">
+          今日の新着は以上です
+        </h2>
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          {["今週の人気記事", "AIまとめ", "おすすめ記事"].map((label) => (
+            <div
+              className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm"
+              key={label}
+            >
+              <p className="text-sm font-semibold">{label}</p>
+              <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
+                追加フィードの候補として準備中です。
+              </p>
+            </div>
+          ))}
+        </div>
+        <button
+          className="mt-6 rounded-md bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-[var(--background)] transition hover:bg-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
+          onClick={onBackToTop}
+          type="button"
+        >
+          先頭へ戻る
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -578,4 +729,20 @@ function formatRelativeDate(value: string): string {
     timeZone: "Asia/Tokyo",
     day: "numeric",
   }).format(new Date(value));
+}
+
+async function fetchArticlePage(cursor: string, limit: number): Promise<ArticlePage> {
+  const params = new URLSearchParams({
+    cursor,
+    limit: String(limit),
+  });
+  const response = await fetch(`/api/articles?${params.toString()}`, {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to load more articles");
+  }
+
+  return (await response.json()) as ArticlePage;
 }

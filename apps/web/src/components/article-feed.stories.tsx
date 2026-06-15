@@ -70,6 +70,34 @@ export default {
 
 export const Default = {};
 
+export const LoadingMore = {
+  args: {
+    articles: articles.slice(0, 1),
+    initialActiveIndex: 1,
+    initialCursor: "storybook-cursor",
+    initialHasMore: true,
+    loadMoreArticles: () => new Promise(() => {}),
+  },
+};
+
+export const LoadMoreError = {
+  args: {
+    articles: articles.slice(0, 1),
+    initialActiveIndex: 1,
+    initialCursor: "storybook-cursor",
+    initialHasMore: true,
+    loadMoreArticles: () => Promise.reject(new Error("storybook error")),
+  },
+};
+
+export const Complete = {
+  args: {
+    articles: articles.slice(0, 1),
+    initialActiveIndex: 1,
+    initialHasMore: false,
+  },
+};
+
 export const Empty = {
   args: {
     articles: [],
