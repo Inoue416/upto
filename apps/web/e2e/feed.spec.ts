@@ -52,6 +52,115 @@ test("moves through cards with keyboard navigation", async ({ page }) => {
     .toBeLessThan(80);
 });
 
+test("persists read, saved, progress, and theme state in IndexedDB", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("upto-theme", "light");
+  });
+  await page.goto("/");
+  await expect(page.getByTestId("article-feed")).toHaveAttribute("data-ready", "true");
+
+  await page.getByTestId("save-article-0").click();
+  await expect(page.getByTestId("save-article-0")).toHaveAttribute("data-saved", "true");
+
+  await page.getByRole("button", { name: "要約を見る" }).first().click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("button", { name: "要約を閉じる" }).click();
+
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator("article[data-index='1'] h2")).toBeInViewport();
+
+  await page.getByTestId("theme-toggle").click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+  await expect
+    .poll(async () =>
+      page.evaluate(async () => {
+        const db = await new Promise<IDBDatabase>((resolve, reject) => {
+          const request = indexedDB.open("upto_user_state");
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => resolve(request.result);
+        });
+
+        const read = <T>(storeName: string, key: IDBValidKey) =>
+          new Promise<T | undefined>((resolve, reject) => {
+            const transaction = db.transaction(storeName, "readonly");
+            const request = transaction.objectStore(storeName).get(key);
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => resolve(request.result as T | undefined);
+          });
+
+        const [savedArticle, readArticle, readingProgress, themeSetting] = await Promise.all([
+          read<{ articleId: string; savedAt: string }>(
+            "saved_articles",
+            "00000000-0000-4000-8000-000000000001",
+          ),
+          read<{ articleId: string; readAt: string }>(
+            "read_articles",
+            "00000000-0000-4000-8000-000000000001",
+          ),
+          read<{ articleId: string; feedType: string; updatedAt: string }>(
+            "reading_progress",
+            "home",
+          ),
+          read<{ key: string; value: string }>("app_settings", "theme"),
+        ]);
+
+        db.close();
+
+        return { readArticle, readingProgress, savedArticle, themeSetting };
+      }),
+    )
+    .toMatchObject({
+      readArticle: {
+        articleId: "00000000-0000-4000-8000-000000000001",
+      },
+      readingProgress: {
+        articleId: "00000000-0000-4000-8000-000000000002",
+        feedType: "home",
+      },
+      savedArticle: {
+        articleId: "00000000-0000-4000-8000-000000000001",
+      },
+      themeSetting: {
+        key: "theme",
+        value: "dark",
+      },
+    });
+
+  await page.reload();
+  await expect(page.locator("article[data-index='1'] h2")).toBeInViewport();
+  await expect(page.getByTestId("save-article-0")).toHaveAttribute("data-saved", "true");
+});
+
+test("marks an article read after staying on it for three seconds", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("article-feed")).toHaveAttribute("data-ready", "true");
+
+  await expect
+    .poll(async () =>
+      page.evaluate(
+        () =>
+          new Promise<boolean>((resolve, reject) => {
+            const request = indexedDB.open("upto_user_state");
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+              const db = request.result;
+              const transaction = db.transaction("read_articles", "readonly");
+              const getRequest = transaction
+                .objectStore("read_articles")
+                .get("00000000-0000-4000-8000-000000000001");
+              getRequest.onerror = () => reject(getRequest.error);
+              getRequest.onsuccess = () => {
+                db.close();
+                resolve(Boolean(getRequest.result));
+              };
+            };
+          }),
+      ),
+    )
+    .toBe(true);
+});
+
 test("keeps article content inside the active card viewport", async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 600 });
   await page.goto("/");
@@ -133,4 +242,18 @@ test("moves only one card with wheel navigation", async ({ page }) => {
   expect(consoleMessages.join("\n")).not.toContain(
     "Unable to preventDefault inside passive event listener invocation",
   );
+});
+
+test("shows the end-of-feed experience after the last article", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("article-feed")).toHaveAttribute("data-ready", "true");
+
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+
+  await expect(page.getByTestId("feed-complete")).toBeInViewport();
+  await expect(page.getByRole("heading", { name: "🎉 今日の新着は以上です" })).toBeVisible();
+  await expect(page.getByText("今週の人気記事")).toBeVisible();
+  await expect(page.getByText("AIまとめ")).toBeVisible();
+  await expect(page.getByText("おすすめ記事")).toBeVisible();
 });
