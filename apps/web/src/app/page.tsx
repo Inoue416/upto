@@ -1,15 +1,19 @@
 import { connection } from "next/server";
 
 import { ArticleFeed } from "../components/article-feed";
-import { getInitialArticles } from "../lib/articles";
+import { getArticlesPage } from "../lib/articles";
 
 export default async function HomePage() {
   await connection();
-  const articles = await getInitialArticles();
+  const articlePage = await getArticlesPage({ limit: 10 });
 
   return (
     <main>
-      <ArticleFeed articles={articles} />
+      <ArticleFeed
+        articles={articlePage.articles}
+        initialCursor={articlePage.nextCursor}
+        initialHasMore={articlePage.hasMore}
+      />
     </main>
   );
 }
