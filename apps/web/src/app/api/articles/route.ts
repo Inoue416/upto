@@ -6,6 +6,7 @@ import { getArticlesPage } from "../../../lib/articles";
 const searchParamsSchema = z.object({
   cursor: z.string().min(1).nullable(),
   limit: z.coerce.number().int().min(1).max(30).default(10),
+  snapshotAt: z.string().datetime().nullable(),
 });
 
 export async function GET(request: Request) {
@@ -13,6 +14,7 @@ export async function GET(request: Request) {
   const parsedParams = searchParamsSchema.safeParse({
     cursor: url.searchParams.get("cursor"),
     limit: url.searchParams.get("limit") ?? undefined,
+    snapshotAt: url.searchParams.get("snapshotAt"),
   });
 
   if (!parsedParams.success) {
@@ -27,7 +29,10 @@ export async function GET(request: Request) {
     return NextResponse.json(page, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to fetch articles";
-    const status = message === "Invalid article page cursor" ? 400 : 500;
+    const status =
+      message === "Invalid article page cursor" || message === "Invalid article page snapshot"
+        ? 400
+        : 500;
 
     return NextResponse.json(
       { error: message },

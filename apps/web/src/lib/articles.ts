@@ -55,6 +55,11 @@ export type ArticlePage = {
   articles: FeedArticle[];
   hasMore: boolean;
   nextCursor: string | null;
+  /**
+   * Feed session anchor. MVP freezes article membership with articles.createdAt <= snapshotAt.
+   * Score changes can still affect ordering until score history or materialized feed sessions exist.
+   */
+  snapshotAt: string;
 };
 
 const defaultPageLimit = 10;
@@ -66,6 +71,8 @@ const articlePageCursorSchema = z.object({
   publishedAt: z.string().datetime().nullable(),
   score: z.number().finite(),
 });
+
+const articlePageSnapshotAtSchema = z.string().datetime();
 
 const fixtureRows: ArticleRow[] = [
   {
@@ -149,13 +156,15 @@ export async function getArticlesPage(
   input: {
     cursor?: string | null;
     limit?: number;
+    snapshotAt?: string | null;
   } = {},
 ): Promise<ArticlePage> {
   const limit = normalizeArticlePageLimit(input.limit);
   const cursor = input.cursor ? decodeArticlePageCursor(input.cursor) : null;
+  const snapshotAt = normalizeArticlePageSnapshotAt(input.snapshotAt);
 
   if (process.env.UPTO_WEB_USE_FIXTURE_DATA === "true") {
-    return paginateRows(fixtureRows, { cursor, limit });
+    return paginateRows(fixtureRows, { cursor, limit, snapshotAt });
   }
 
   const db = createDb();
@@ -183,7 +192,7 @@ export async function getArticlesPage(
     .innerJoin(sources, eq(articles.sourceId, sources.id))
     .innerJoin(articleSummaries, eq(articles.id, articleSummaries.articleId))
     .leftJoin(articleMetrics, eq(articles.id, articleMetrics.articleId))
-    .where(buildArticlePageWhere(cursor))
+    .where(buildArticlePageWhere({ cursor, snapshotAt: new Date(snapshotAt) }))
     .orderBy(
       sql`coalesce(${articleMetrics.score}, 0) desc`,
       sql`${articles.publishedAt} desc nulls last`,
@@ -192,7 +201,7 @@ export async function getArticlesPage(
     )
     .limit(limit + 1);
 
-  return paginateRows(rows, { limit });
+  return paginateRows(rows, { limit, snapshotAt });
 }
 
 export async function getInitialArticles(limit = defaultPageLimit): Promise<FeedArticle[]> {
@@ -273,11 +282,13 @@ function createFixtureRow(input: {
 
 function paginateRows(
   rows: ArticleRow[],
-  input: { cursor?: ArticlePageCursor | null; limit: number },
+  input: { cursor?: ArticlePageCursor | null; limit: number; snapshotAt: string },
 ): ArticlePage {
+  const snapshotTime = new Date(input.snapshotAt).getTime();
+  const sessionRows = rows.filter((row) => row.createdAt.getTime() <= snapshotTime);
   const filteredRows = input.cursor
-    ? rows.filter((row) => isRowAfterCursor(row, input.cursor as ArticlePageCursor))
-    : rows;
+    ? sessionRows.filter((row) => isRowAfterCursor(row, input.cursor as ArticlePageCursor))
+    : sessionRows;
   const requestedRows = filteredRows.slice(0, input.limit + 1);
   const articleRows = requestedRows.slice(0, input.limit);
   const hasMore = requestedRows.length > input.limit;
@@ -287,6 +298,7 @@ function paginateRows(
     articles: articleRows.map(mapArticleRow),
     hasMore,
     nextCursor: hasMore && lastRow ? encodeArticlePageCursor(createCursorFromRow(lastRow)) : null,
+    snapshotAt: input.snapshotAt,
   };
 }
 
@@ -308,6 +320,18 @@ function decodeArticlePageCursor(value: string): ArticlePageCursor {
     return articlePageCursorSchema.parse(decoded);
   } catch {
     throw new Error("Invalid article page cursor");
+  }
+}
+
+function normalizeArticlePageSnapshotAt(value: string | null | undefined): string {
+  if (!value) {
+    return new Date().toISOString();
+  }
+
+  try {
+    return articlePageSnapshotAtSchema.parse(value);
+  } catch {
+    throw new Error("Invalid article page snapshot");
   }
 }
 
@@ -358,9 +382,14 @@ function comparePublishedAtDescNullsLast(left: string | null, right: string | nu
   return left < right ? 1 : -1;
 }
 
-function buildArticlePageWhere(cursor: ArticlePageCursor | null) {
+function buildArticlePageWhere(input: { cursor: ArticlePageCursor | null; snapshotAt: Date }) {
+  const { cursor, snapshotAt } = input;
+
   if (!cursor) {
-    return eq(articles.summaryStatus, "summarized");
+    return sql`
+      ${articles.summaryStatus} = 'summarized'
+      and ${articles.createdAt} <= ${snapshotAt}
+    `;
   }
 
   const publishedAt = cursor.publishedAt ? new Date(cursor.publishedAt) : null;
@@ -369,6 +398,7 @@ function buildArticlePageWhere(cursor: ArticlePageCursor | null) {
   if (publishedAt) {
     return sql`
       ${articles.summaryStatus} = 'summarized'
+      and ${articles.createdAt} <= ${snapshotAt}
       and (
         coalesce(${articleMetrics.score}, 0) < ${cursor.score}
         or (
@@ -391,6 +421,7 @@ function buildArticlePageWhere(cursor: ArticlePageCursor | null) {
 
   return sql`
     ${articles.summaryStatus} = 'summarized'
+    and ${articles.createdAt} <= ${snapshotAt}
     and (
       coalesce(${articleMetrics.score}, 0) < ${cursor.score}
       or (

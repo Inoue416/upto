@@ -58,13 +58,18 @@ describe("getArticlesPage", () => {
     ]);
     expect(page.hasMore).toBe(true);
     expect(page.nextCursor).toEqual(expect.any(String));
+    expect(page.snapshotAt).toEqual(expect.any(String));
   });
 
   it("uses the next cursor to fetch the following fixture page", async () => {
     process.env.UPTO_WEB_USE_FIXTURE_DATA = "true";
 
     const firstPage = await getArticlesPage({ limit: 2 });
-    const secondPage = await getArticlesPage({ cursor: firstPage.nextCursor, limit: 2 });
+    const secondPage = await getArticlesPage({
+      cursor: firstPage.nextCursor,
+      limit: 2,
+      snapshotAt: firstPage.snapshotAt,
+    });
 
     expect(secondPage.articles).toHaveLength(2);
     expect(secondPage.articles.map((article) => article.id)).toEqual([
@@ -73,6 +78,30 @@ describe("getArticlesPage", () => {
     ]);
     expect(secondPage.hasMore).toBe(true);
     expect(secondPage.nextCursor).toEqual(expect.any(String));
+    expect(secondPage.snapshotAt).toBe(firstPage.snapshotAt);
+  });
+
+  it("keeps fixture pagination within the feed session snapshot", async () => {
+    process.env.UPTO_WEB_USE_FIXTURE_DATA = "true";
+    const snapshotAt = "2026-06-06T17:00:00.000Z";
+
+    const firstPage = await getArticlesPage({ limit: 2, snapshotAt });
+    const secondPage = await getArticlesPage({
+      cursor: firstPage.nextCursor,
+      limit: 2,
+      snapshotAt: firstPage.snapshotAt,
+    });
+
+    const articleIds = [...firstPage.articles, ...secondPage.articles].map((article) => article.id);
+    expect(firstPage.snapshotAt).toBe(snapshotAt);
+    expect(secondPage.snapshotAt).toBe(snapshotAt);
+    expect(articleIds).toEqual([
+      "00000000-0000-4000-8000-000000000004",
+      "00000000-0000-4000-8000-000000000005",
+      "00000000-0000-4000-8000-000000000006",
+      "00000000-0000-4000-8000-000000000007",
+    ]);
+    expect(articleIds).not.toContain("00000000-0000-4000-8000-000000000003");
   });
 
   it("returns no cursor on the final fixture page", async () => {
@@ -95,6 +124,14 @@ describe("getArticlesPage", () => {
 
     await expect(getArticlesPage({ cursor: "not-a-cursor", limit: 2 })).rejects.toThrow(
       "Invalid article page cursor",
+    );
+  });
+
+  it("rejects invalid feed session snapshots", async () => {
+    process.env.UPTO_WEB_USE_FIXTURE_DATA = "true";
+
+    await expect(getArticlesPage({ limit: 2, snapshotAt: "not-a-date" })).rejects.toThrow(
+      "Invalid article page snapshot",
     );
   });
 });
