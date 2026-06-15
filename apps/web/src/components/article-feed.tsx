@@ -350,7 +350,7 @@ export function ArticleFeed({ articles, feedType = "home" }: ArticleFeedProps) {
                       onClick={() => openDetail(article)}
                       type="button"
                     >
-                      詳細
+                      要約を見る
                     </button>
                     <a
                       className="rounded-md bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-[var(--background)] transition hover:bg-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
@@ -496,7 +496,7 @@ function ArticleDetailDialog({ article, onClose }: { article: FeedArticle; onClo
             </h2>
           </div>
           <button
-            aria-label="詳細を閉じる"
+            aria-label="要約を閉じる"
             className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface-muted)] text-lg leading-none hover:border-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
             onClick={onClose}
             type="button"

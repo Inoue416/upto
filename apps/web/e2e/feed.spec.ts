@@ -62,9 +62,9 @@ test("persists read, saved, progress, and theme state in IndexedDB", async ({ pa
   await page.getByTestId("save-article-0").click();
   await expect(page.getByTestId("save-article-0")).toHaveAttribute("data-saved", "true");
 
-  await page.getByRole("button", { name: "詳細" }).first().click();
+  await page.getByRole("button", { name: "要約を見る" }).first().click();
   await expect(page.getByRole("dialog")).toBeVisible();
-  await page.getByRole("button", { name: "詳細を閉じる" }).click();
+  await page.getByRole("button", { name: "要約を閉じる" }).click();
 
   await page.keyboard.press("ArrowDown");
   await expect(page.locator("article[data-index='1'] h2")).toBeInViewport();
