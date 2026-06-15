@@ -9,8 +9,8 @@ import { runCollector } from "./run-collector.js";
 const baseConfig = {
   concurrency: 1,
   dryRun: true,
-  geminiModelDefault: "gemini-2.5-flash-lite",
-  geminiModelImportant: "gemini-2.5-flash",
+  geminiModelDefault: "gemini-3.1-flash-lite",
+  geminiModelImportant: "gemini-3.0-flash",
   maxItemsPerFeed: 20,
   summaryChunkChars: 12000,
 };
