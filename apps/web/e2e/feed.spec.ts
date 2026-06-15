@@ -244,12 +244,28 @@ test("moves only one card with wheel navigation", async ({ page }) => {
 });
 
 test("loads additional articles before showing the end-of-feed experience", async ({ page }) => {
+  const articleApiUrls: string[] = [];
+  await page.route("**/api/articles**", async (route) => {
+    articleApiUrls.push(route.request().url());
+    await route.fallback();
+  });
+
   await page.goto("/");
-  await expect(page.getByTestId("article-feed")).toHaveAttribute("data-ready", "true");
+  const feed = page.getByTestId("article-feed");
+  await expect(feed).toHaveAttribute("data-ready", "true");
+  const snapshotAt = await feed.getAttribute("data-snapshot-at");
+  expect(snapshotAt).not.toBeNull();
+  const expectedSnapshotAt = snapshotAt ?? "";
   await expect(page.getByTestId("feed-complete")).toHaveCount(0);
 
   await page.locator("article[data-index='8']").scrollIntoViewIfNeeded();
   await expect(page.locator("article[data-index='8'] h2")).toBeInViewport();
+  await expect.poll(() => articleApiUrls.length).toBeGreaterThan(0);
+  const firstApiUrl = new URL(articleApiUrls[0] ?? "http://localhost/");
+  expect(firstApiUrl.searchParams.get("snapshotAt")).toBe(expectedSnapshotAt);
+  expect(firstApiUrl.searchParams.get("snapshotAt")).toMatch(
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/,
+  );
   for (const title of ["fixture pagination article 11", "fixture pagination article 12"]) {
     const heading = page.getByRole("heading", { name: title });
     await expect(heading).toBeAttached();

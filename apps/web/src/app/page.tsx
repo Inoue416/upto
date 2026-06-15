@@ -13,6 +13,7 @@ export default async function HomePage() {
         articles={articlePage.articles}
         initialCursor={articlePage.nextCursor}
         initialHasMore={articlePage.hasMore}
+        initialSnapshotAt={articlePage.snapshotAt}
       />
     </main>
   );

@@ -14,7 +14,8 @@ type ArticleFeedProps = {
   initialActiveIndex?: number;
   initialCursor?: string | null;
   initialHasMore?: boolean;
-  loadMoreArticles?: (cursor: string, limit: number) => Promise<ArticlePage>;
+  initialSnapshotAt?: string;
+  loadMoreArticles?: (cursor: string, limit: number, snapshotAt: string) => Promise<ArticlePage>;
 };
 
 const wheelThreshold = 70;
@@ -27,8 +28,11 @@ export function ArticleFeed({
   initialActiveIndex = 0,
   initialCursor = null,
   initialHasMore = false,
+  initialSnapshotAt,
   loadMoreArticles = fetchArticlePage,
 }: ArticleFeedProps) {
+  const generatedSnapshotAtRef = useRef(initialSnapshotAt ?? new Date().toISOString());
+  const effectiveInitialSnapshotAt = initialSnapshotAt ?? generatedSnapshotAtRef.current;
   const [feedArticles, setFeedArticles] = useState(() => articles);
   const [activeIndex, setActiveIndex] = useState(initialActiveIndex);
   const [detailArticle, setDetailArticle] = useState<FeedArticle | null>(null);
@@ -38,6 +42,7 @@ export function ArticleFeed({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(initialCursor);
+  const [snapshotAt, setSnapshotAt] = useState(effectiveInitialSnapshotAt);
   const containerRef = useRef<HTMLDivElement>(null);
   const isLoadingMoreRef = useRef(false);
   const wheelRef = useRef({
@@ -62,12 +67,21 @@ export function ArticleFeed({
   useEffect(() => {
     setFeedArticles(articles);
     setNextCursor(initialCursor);
+    setSnapshotAt(effectiveInitialSnapshotAt);
     setHasMore(initialHasMore);
     setIsLoadingMore(false);
     setLoadMoreError(null);
     setActiveIndex(initialActiveIndex);
     setHasRestoredProgress(false);
-  }, [articles, initialActiveIndex, initialArticleIdsKey, initialCursor, initialHasMore, feedType]);
+  }, [
+    articles,
+    initialActiveIndex,
+    initialArticleIdsKey,
+    initialCursor,
+    initialHasMore,
+    effectiveInitialSnapshotAt,
+    feedType,
+  ]);
 
   useEffect(() => {
     activeIndexRef.current = activeIndex;
@@ -248,13 +262,14 @@ export function ArticleFeed({
     setLoadMoreError(null);
 
     try {
-      const page = await loadMoreArticles(nextCursor, loadMorePageSize);
+      const page = await loadMoreArticles(nextCursor, loadMorePageSize, snapshotAt);
       setFeedArticles((currentArticles) => {
         const existingIds = new Set(currentArticles.map((article) => article.id));
         const newArticles = page.articles.filter((article) => !existingIds.has(article.id));
         return [...currentArticles, ...newArticles];
       });
       setNextCursor(page.nextCursor);
+      setSnapshotAt(page.snapshotAt);
       setHasMore(page.hasMore);
       return true;
     } catch {
@@ -264,7 +279,7 @@ export function ArticleFeed({
       isLoadingMoreRef.current = false;
       setIsLoadingMore(false);
     }
-  }, [hasMore, loadMoreArticles, nextCursor]);
+  }, [hasMore, loadMoreArticles, nextCursor, snapshotAt]);
 
   useEffect(() => {
     if (activeIndex >= feedArticles.length - 2 && !loadMoreError) {
@@ -317,6 +332,7 @@ export function ArticleFeed({
         ref={containerRef}
         className="min-h-0 flex-1 snap-y snap-mandatory overflow-y-auto overscroll-y-contain scroll-smooth"
         data-ready={isReady ? "true" : "false"}
+        data-snapshot-at={snapshotAt}
         data-testid="article-feed"
       >
         {feedArticles.map((article, index) => {
@@ -731,10 +747,15 @@ function formatRelativeDate(value: string): string {
   }).format(new Date(value));
 }
 
-async function fetchArticlePage(cursor: string, limit: number): Promise<ArticlePage> {
+async function fetchArticlePage(
+  cursor: string,
+  limit: number,
+  snapshotAt: string,
+): Promise<ArticlePage> {
   const params = new URLSearchParams({
     cursor,
     limit: String(limit),
+    snapshotAt,
   });
   const response = await fetch(`/api/articles?${params.toString()}`, {
     cache: "no-store",
