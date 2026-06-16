@@ -132,6 +132,50 @@ test("persists read, saved, progress, and theme state in IndexedDB", async ({ pa
   await expect(page.getByTestId("save-article-0")).toHaveAttribute("data-saved", "true");
 });
 
+test("continues feed browsing when local IndexedDB writes fail", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await page.addInitScript(() => {
+    const writeStores = new Set([
+      "app_settings",
+      "read_articles",
+      "reading_progress",
+      "saved_articles",
+    ]);
+    const originalDelete = IDBObjectStore.prototype.delete;
+    const originalPut = IDBObjectStore.prototype.put;
+
+    IDBObjectStore.prototype.delete = function failingDelete(...args) {
+      if (writeStores.has(this.name)) {
+        throw new DOMException("simulated IndexedDB delete failure", "QuotaExceededError");
+      }
+
+      return originalDelete.apply(this, args);
+    };
+
+    IDBObjectStore.prototype.put = function failingPut(...args) {
+      if (writeStores.has(this.name)) {
+        throw new DOMException("simulated IndexedDB put failure", "QuotaExceededError");
+      }
+
+      return originalPut.apply(this, args);
+    };
+  });
+
+  await page.goto("/");
+  await expect(page.getByTestId("article-feed")).toHaveAttribute("data-ready", "true");
+
+  await page.getByTestId("save-article-0").click();
+  await page.getByRole("button", { name: "要約を見る" }).first().click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("button", { name: "要約を閉じる" }).click();
+  await page.keyboard.press("ArrowDown");
+
+  await expect(page.locator("article[data-index='1'] h2")).toBeInViewport();
+  await expect(page.getByRole("button", { name: "次の記事へ" }).first()).toBeVisible();
+  expect(pageErrors).toEqual([]);
+});
+
 test("marks an article read after staying on it for three seconds", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByTestId("article-feed")).toHaveAttribute("data-ready", "true");

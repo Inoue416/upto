@@ -272,6 +272,23 @@ journalctl -u upto-web.service -n 200 --no-pager
 
 外部公開する場合は Caddy や nginx で `localhost:3000` へ reverse proxy する。
 
+### Web エラー調査
+
+初期表示や `/api/articles` が失敗した場合、画面と公開APIレスポンスには固定の短いエラーだけを出す。DB URL、stack trace、Next.js digest、内部例外 message はユーザー画面や公開APIレスポンスに出さない。
+
+調査時は Web の標準出力と reverse proxy のログを確認する。
+
+```bash
+journalctl -u upto-web.service -n 200 --no-pager
+journalctl -u upto-web.service -f
+```
+
+確認ポイント:
+
+- `Failed to fetch article page`: `/api/articles` の内部エラー。`DATABASE_URL`、PostgreSQL の稼働状態、migration 状態を確認する。
+- `Failed to render the article feed`: 初期表示の Server Component 取得または描画時の失敗。周辺ログに DB 接続や記事取得の例外がないか確認する。
+- 400 の `invalid_cursor` / `invalid_snapshot`: client から渡された cursor または snapshotAt が不正。通常は再読み込みで復旧する。
+
 ## Web を Vercel で公開する場合
 
 Vercel 側に少なくとも以下を設定する。

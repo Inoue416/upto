@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { ArticlePage, FeedArticle } from "../lib/articles";
 
+import { logWarning } from "../lib/logging";
 import { useUserArticleState } from "../lib/use-user-article-state";
 import { markArticleRead, markArticleSaved, saveReadingProgress } from "../lib/user-state-db";
 import { ThemeToggle } from "./theme-toggle";
@@ -176,7 +177,9 @@ export function ArticleFeed({
       return;
     }
 
-    void saveReadingProgress(feedType, activeArticle.id);
+    void saveReadingProgress(feedType, activeArticle.id).catch((error: unknown) =>
+      logWarning("Failed to save reading progress", error),
+    );
   }, [activeArticle, feedType, hasRestoredProgress, userState.isLoaded]);
 
   useEffect(() => {
@@ -189,7 +192,9 @@ export function ArticleFeed({
     }
 
     const timeoutId = window.setTimeout(() => {
-      void markArticleRead(activeArticle.id);
+      void markArticleRead(activeArticle.id).catch((error: unknown) =>
+        logWarning("Failed to mark article read", error),
+      );
     }, 3_000);
 
     return () => window.clearTimeout(timeoutId);
@@ -272,7 +277,8 @@ export function ArticleFeed({
       setSnapshotAt(page.snapshotAt);
       setHasMore(page.hasMore);
       return true;
-    } catch {
+    } catch (error) {
+      logWarning("Failed to load more articles", error);
       setLoadMoreError("追加読み込みに失敗しました");
       return false;
     } finally {
@@ -299,11 +305,15 @@ export function ArticleFeed({
 
   function openDetail(article: FeedArticle) {
     setDetailArticle(article);
-    void markArticleRead(article.id);
+    void markArticleRead(article.id).catch((error: unknown) =>
+      logWarning("Failed to mark article read", error),
+    );
   }
 
   function toggleSaved(article: FeedArticle, isSaved: boolean) {
-    void markArticleSaved(article.id, !isSaved);
+    void markArticleSaved(article.id, !isSaved).catch((error: unknown) =>
+      logWarning("Failed to update saved article", error),
+    );
   }
 
   if (feedArticles.length === 0) {
@@ -317,7 +327,7 @@ export function ArticleFeed({
           </h1>
           <p className="mt-5 max-w-xl leading-7 text-[var(--muted)]">
             collector batch を実行して、要約済みの記事がDBへ保存されるとここに表示されます。
-            本番環境では `DATABASE_URL` を設定し、定期バッチを起動してください。
+            本番環境ではデータベース接続設定を確認し、定期バッチを起動してください。
           </p>
         </div>
       </section>
@@ -450,7 +460,9 @@ export function ArticleFeed({
                       className="rounded-md bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-[var(--background)] transition hover:bg-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
                       href={article.originalUrl}
                       onClick={() => {
-                        void markArticleRead(article.id);
+                        void markArticleRead(article.id).catch((error: unknown) =>
+                          logWarning("Failed to mark article read", error),
+                        );
                       }}
                       rel="noreferrer"
                       target="_blank"

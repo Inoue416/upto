@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { logWarning } from "../lib/logging";
 import { getAppSetting, setAppSetting } from "../lib/user-state-db";
 
 type Theme = "light" | "dark";
@@ -15,7 +16,9 @@ function isTheme(value: string | null): value is Theme {
 function applyTheme(theme: Theme) {
   document.documentElement.dataset.theme = theme;
   window.localStorage.setItem(storageKey, theme);
-  void setAppSetting("theme", theme);
+  void setAppSetting("theme", theme).catch((error: unknown) =>
+    logWarning("Failed to save theme setting", error),
+  );
 }
 
 export function ThemeToggle() {
@@ -27,16 +30,20 @@ export function ThemeToggle() {
       setTheme(currentTheme);
     }
 
-    void getAppSetting("theme").then((setting) => {
-      const storedTheme = setting?.value ?? null;
-      if (!isTheme(storedTheme)) {
-        return;
-      }
+    void getAppSetting("theme")
+      .then((setting) => {
+        const storedTheme = setting?.value ?? null;
+        if (!isTheme(storedTheme)) {
+          return;
+        }
 
-      document.documentElement.dataset.theme = storedTheme;
-      window.localStorage.setItem(storageKey, storedTheme);
-      setTheme(storedTheme);
-    });
+        document.documentElement.dataset.theme = storedTheme;
+        window.localStorage.setItem(storageKey, storedTheme);
+        setTheme(storedTheme);
+      })
+      .catch((error: unknown) => {
+        logWarning("Failed to load theme setting", error);
+      });
   }, []);
 
   function toggleTheme() {
