@@ -22,6 +22,7 @@ type ArticleFeedProps = {
 const wheelThreshold = 70;
 const wheelCooldownMs = 520;
 const loadMorePageSize = 10;
+const maxProgressDots = 12;
 
 export function ArticleFeed({
   articles,
@@ -202,6 +203,14 @@ export function ArticleFeed({
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
+      if (detailArticle) {
+        if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === " ") {
+          event.preventDefault();
+        }
+
+        return;
+      }
+
       if (event.key === "ArrowDown" || (event.key === " " && !event.shiftKey)) {
         event.preventDefault();
         scrollToIndex(activeIndexRef.current + 1);
@@ -215,7 +224,7 @@ export function ArticleFeed({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [scrollToIndex]);
+  }, [detailArticle, scrollToIndex]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -502,15 +511,19 @@ export function ArticleFeed({
                   </div>
                 </div>
 
-                <div className="mt-2 flex shrink-0 gap-1.5" aria-hidden="true">
-                  {feedArticles.map((item, dotIndex) => (
+                <div
+                  className="mt-2 flex shrink-0 gap-1.5"
+                  aria-hidden="true"
+                  data-progress-dots="true"
+                >
+                  {getProgressDotIndexes(feedArticles.length, index).map((dotIndex) => (
                     <span
                       className={
                         dotIndex === index
                           ? "h-1.5 w-5 rounded-full bg-[var(--accent)]"
                           : "h-1.5 w-1.5 rounded-full bg-[var(--border-strong)]"
                       }
-                      key={item.id}
+                      key={dotIndex}
                     />
                   ))}
                 </div>
@@ -724,6 +737,20 @@ function difficultyLabel(difficulty: FeedArticle["difficulty"]): string {
   }
 
   return "実務";
+}
+
+function getProgressDotIndexes(articleCount: number, currentIndex: number): number[] {
+  if (articleCount <= maxProgressDots) {
+    return Array.from({ length: articleCount }, (_, index) => index);
+  }
+
+  const halfWindow = Math.floor(maxProgressDots / 2);
+  const start = Math.min(
+    Math.max(currentIndex - halfWindow + 1, 0),
+    articleCount - maxProgressDots,
+  );
+
+  return Array.from({ length: maxProgressDots }, (_, index) => start + index);
 }
 
 function formatAbsoluteDate(value: string): string {

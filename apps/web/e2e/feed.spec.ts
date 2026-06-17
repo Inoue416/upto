@@ -132,6 +132,27 @@ test("persists read, saved, progress, and theme state in IndexedDB", async ({ pa
   await expect(page.getByTestId("save-article-0")).toHaveAttribute("data-saved", "true");
 });
 
+test("does not move the feed with keyboard shortcuts while the summary dialog is open", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.getByTestId("article-feed")).toHaveAttribute("data-ready", "true");
+
+  await page.getByRole("button", { name: "要約を見る" }).first().click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  const initialScrollTop = await page
+    .getByTestId("article-feed")
+    .evaluate((element) => element.scrollTop);
+
+  await page.keyboard.press("ArrowDown");
+  await page.waitForTimeout(600);
+
+  await expect
+    .poll(async () => page.getByTestId("article-feed").evaluate((element) => element.scrollTop))
+    .toBe(initialScrollTop);
+  await expect(page.getByRole("dialog")).toBeVisible();
+});
+
 test("continues feed browsing when local IndexedDB writes fail", async ({ page }) => {
   const pageErrors: string[] = [];
   page.on("pageerror", (error) => pageErrors.push(error.message));
