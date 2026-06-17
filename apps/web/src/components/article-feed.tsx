@@ -37,7 +37,6 @@ export function ArticleFeed({
   const effectiveInitialSnapshotAt = initialSnapshotAt ?? generatedSnapshotAtRef.current;
   const [feedArticles, setFeedArticles] = useState(() => articles);
   const [activeIndex, setActiveIndex] = useState(initialActiveIndex);
-  const [detailArticle, setDetailArticle] = useState<FeedArticle | null>(null);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [hasRestoredProgress, setHasRestoredProgress] = useState(false);
   const [isReady, setIsReady] = useState(false);
@@ -203,14 +202,6 @@ export function ArticleFeed({
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (detailArticle) {
-        if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === " ") {
-          event.preventDefault();
-        }
-
-        return;
-      }
-
       if (event.key === "ArrowDown" || (event.key === " " && !event.shiftKey)) {
         event.preventDefault();
         scrollToIndex(activeIndexRef.current + 1);
@@ -224,7 +215,7 @@ export function ArticleFeed({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [detailArticle, scrollToIndex]);
+  }, [scrollToIndex]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -310,13 +301,6 @@ export function ArticleFeed({
     }
 
     scrollToIndex(index + 1);
-  }
-
-  function openDetail(article: FeedArticle) {
-    setDetailArticle(article);
-    void markArticleRead(article.id).catch((error: unknown) =>
-      logWarning("Failed to mark article read", error),
-    );
   }
 
   function toggleSaved(article: FeedArticle, isSaved: boolean) {
@@ -458,13 +442,6 @@ export function ArticleFeed({
 
                 <div className="mt-auto flex shrink-0 flex-wrap items-center justify-between gap-3 pt-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      className="rounded-md border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-medium transition hover:border-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
-                      onClick={() => openDetail(article)}
-                      type="button"
-                    >
-                      要約を見る
-                    </button>
                     <a
                       className="rounded-md bg-[var(--foreground)] px-4 py-2 text-sm font-medium text-[var(--background)] transition hover:bg-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
                       href={article.originalUrl}
@@ -544,9 +521,6 @@ export function ArticleFeed({
           <FeedCompleteCard index={feedArticles.length} onBackToTop={() => scrollToIndex(0)} />
         )}
       </div>
-      {detailArticle ? (
-        <ArticleDetailDialog article={detailArticle} onClose={() => setDetailArticle(null)} />
-      ) : null}
     </section>
   );
 }
@@ -658,72 +632,6 @@ function FeedCompleteCard({ index, onBackToTop }: { index: number; onBackToTop: 
         </button>
       </div>
     </article>
-  );
-}
-
-function ArticleDetailDialog({ article, onClose }: { article: FeedArticle; onClose: () => void }) {
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
-
-  return (
-    <dialog
-      aria-modal="true"
-      className="fixed inset-0 z-20 m-0 flex h-auto max-h-none max-w-none items-end border-0 bg-black/35 px-3 py-4 text-[var(--foreground)] sm:items-center sm:justify-center"
-      open
-    >
-      <div className="max-h-[88dvh] w-full max-w-2xl overflow-y-auto rounded-lg bg-[var(--surface)] p-5 shadow-xl">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-medium text-[var(--accent)]">{article.sourceName}</p>
-            <h2 className="mt-2 text-2xl leading-snug font-semibold text-balance">
-              {article.title}
-            </h2>
-          </div>
-          <button
-            aria-label="要約を閉じる"
-            className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--surface-muted)] text-lg leading-none hover:border-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
-            onClick={onClose}
-            type="button"
-          >
-            ×
-          </button>
-        </div>
-        {article.oneLineSummary ? (
-          <p className="mt-4 text-base leading-7 font-medium">{article.oneLineSummary}</p>
-        ) : null}
-        <p className="mt-3 text-sm leading-7 text-[var(--muted)]">{article.summary}</p>
-        <ul className="mt-4 space-y-2">
-          {article.summaryBullets.map((bullet) => (
-            <li className="rounded-lg bg-[var(--surface-muted)] px-3 py-2 text-sm" key={bullet}>
-              {bullet}
-            </li>
-          ))}
-        </ul>
-        {article.whyItMatters ? (
-          <p className="mt-4 rounded-lg border border-[var(--border)] px-3 py-2 text-sm leading-6 text-[var(--muted)]">
-            {article.whyItMatters}
-          </p>
-        ) : null}
-        <div className="mt-4 flex flex-wrap gap-2">
-          {article.tags.map((tag) => (
-            <span
-              className="rounded-full border border-[var(--border)] px-3 py-1 text-xs text-[var(--muted)]"
-              key={tag}
-            >
-              #{tag}
-            </span>
-          ))}
-        </div>
-      </div>
-    </dialog>
   );
 }
 
