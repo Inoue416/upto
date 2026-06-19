@@ -4,6 +4,10 @@ test("renders the news feed", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Upto" })).toBeVisible();
   await expect(page.locator("article[data-index='0'] h2")).toBeVisible();
+  await expect(
+    page.getByText("Next.js App Router と Server Components を活用した記事配信の実装例です。"),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "要約を見る" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "次の記事へ" }).first()).toBeVisible();
 });
 
@@ -52,7 +56,7 @@ test("moves through cards with keyboard navigation", async ({ page }) => {
     .toBeLessThan(80);
 });
 
-test("persists read, saved, progress, and theme state in IndexedDB", async ({ page }) => {
+test("persists saved, progress, and theme state in IndexedDB", async ({ page }) => {
   await page.addInitScript(() => {
     window.localStorage.setItem("upto-theme", "light");
   });
@@ -61,10 +65,6 @@ test("persists read, saved, progress, and theme state in IndexedDB", async ({ pa
 
   await page.getByTestId("save-article-0").click();
   await expect(page.getByTestId("save-article-0")).toHaveAttribute("data-saved", "true");
-
-  await page.getByRole("button", { name: "要約を見る" }).first().click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.getByRole("button", { name: "要約を閉じる" }).click();
 
   await page.keyboard.press("ArrowDown");
   await expect(page.locator("article[data-index='1'] h2")).toBeInViewport();
@@ -89,13 +89,9 @@ test("persists read, saved, progress, and theme state in IndexedDB", async ({ pa
             request.onsuccess = () => resolve(request.result as T | undefined);
           });
 
-        const [savedArticle, readArticle, readingProgress, themeSetting] = await Promise.all([
+        const [savedArticle, readingProgress, themeSetting] = await Promise.all([
           read<{ articleId: string; savedAt: string }>(
             "saved_articles",
-            "00000000-0000-4000-8000-000000000001",
-          ),
-          read<{ articleId: string; readAt: string }>(
-            "read_articles",
             "00000000-0000-4000-8000-000000000001",
           ),
           read<{ articleId: string; feedType: string; updatedAt: string }>(
@@ -107,13 +103,10 @@ test("persists read, saved, progress, and theme state in IndexedDB", async ({ pa
 
         db.close();
 
-        return { readArticle, readingProgress, savedArticle, themeSetting };
+        return { readingProgress, savedArticle, themeSetting };
       }),
     )
     .toMatchObject({
-      readArticle: {
-        articleId: "00000000-0000-4000-8000-000000000001",
-      },
       readingProgress: {
         articleId: "00000000-0000-4000-8000-000000000002",
         feedType: "home",
@@ -130,6 +123,20 @@ test("persists read, saved, progress, and theme state in IndexedDB", async ({ pa
   await page.reload();
   await expect(page.locator("article[data-index='1'] h2")).toBeInViewport();
   await expect(page.getByTestId("save-article-0")).toHaveAttribute("data-saved", "true");
+});
+
+test("keeps summaries directly readable without a summary dialog", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("article-feed")).toHaveAttribute("data-ready", "true");
+
+  await expect(page.getByRole("button", { name: "要約を見る" })).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByText("初期表示は Server Component で取得する")).toBeVisible();
+  await expect(
+    page.getByText(
+      "サーバー取得とクライアント操作の責務を分けることで、MVPでも拡張しやすいUIを作れます。",
+    ),
+  ).toBeVisible();
 });
 
 test("continues feed browsing when local IndexedDB writes fail", async ({ page }) => {
@@ -166,9 +173,6 @@ test("continues feed browsing when local IndexedDB writes fail", async ({ page }
   await expect(page.getByTestId("article-feed")).toHaveAttribute("data-ready", "true");
 
   await page.getByTestId("save-article-0").click();
-  await page.getByRole("button", { name: "要約を見る" }).first().click();
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.getByRole("button", { name: "要約を閉じる" }).click();
   await page.keyboard.press("ArrowDown");
 
   await expect(page.locator("article[data-index='1'] h2")).toBeInViewport();

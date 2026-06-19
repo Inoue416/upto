@@ -24,6 +24,7 @@ storybook-static/
 test-results/
 playwright-report/
 blob-report/
+dogfood-output/
 
 # Logs
 logs/
